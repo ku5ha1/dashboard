@@ -7,6 +7,14 @@ from .config import settings
 
 logger = getLogger("app.db")
 
+def _normalize_database_url(database_url: str) -> str:
+    # Ensure SQLAlchemy uses the psycopg (psycopg3) driver on Postgres
+    if database_url.startswith("postgres://"):
+        return "postgresql+psycopg://" + database_url[len("postgres://"):]
+    if database_url.startswith("postgresql://") and "+psycopg" not in database_url and "+psycopg2" not in database_url:
+        return database_url.replace("postgresql://", "postgresql+psycopg://", 1)
+    return database_url
+
 def _resolve_sqlite_url(database_url: str) -> str:
     if not database_url.startswith("sqlite"):
         return database_url
@@ -46,7 +54,8 @@ def _resolve_sqlite_url(database_url: str) -> str:
             return database_url
 
 
-final_database_url = _resolve_sqlite_url(settings.DATABASE_URL)
+normalized_url = _normalize_database_url(settings.DATABASE_URL)
+final_database_url = _resolve_sqlite_url(normalized_url)
 engine = create_engine(
     final_database_url,
     connect_args={"check_same_thread": False} if final_database_url.startswith("sqlite") else {},
