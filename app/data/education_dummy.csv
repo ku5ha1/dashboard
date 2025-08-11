@@ -1,11 +1,151 @@
 student_id,student_name,gender,state,school_name,class,course_name,completion_status,marks
-1,Aarav Sharma,Male,Karnataka,Green Valley High,10,Mathematics,Completed,88
-2,Ananya Reddy,Female,Karnataka,Sunshine Public,9,Science,Completed,92
-3,Pranav Iyer,Male,Karnataka,Green Valley High,10,Mathematics,Not Completed,55
-4,Ishita Nair,Female,Kerala,Riverdale School,8,English,Completed,78
-5,Vihaan Gupta,Male,Maharashtra,Hilltop School,9,Science,Completed,85
-6,Sanya Mehta,Female,Maharashtra,Hilltop School,9,Science,Not Completed,60
-7,Aditya Rao,Male,Telangana,Lakeview High,8,English,Completed,90
-8,Meera Kulkarni,Female,Telangana,Lakeview High,8,English,Completed,87
-9,Arjun Patil,Male,Karnataka,Sunshine Public,9,Science,Completed,91
-10,Diya Singh,Female,Kerala,Riverdale School,8,English,Not Completed,70
+1,Nandini Menon,Female,Tamil Nadu,Evergreen Academy,4,Biology,Completed,64
+2,Sakshi Rao,Female,Karnataka,National Public School,10,Mathematics,Dropped,19
+3,Tanya Rao,Female,Maharashtra,Riverdale High,8,Economics,Dropped,23
+4,Aniket Deshmukh,Male,Kerala,Crescent High,10,Chemistry,Dropped,25
+5,Vikram Shah,Male,Gujarat,Silver Oak High,5,English,Completed,73
+6,Raghav Singh,Male,Rajasthan,Desert Bloom School,7,Chemistry,In Progress,51
+7,Raghav Rao,Male,Tamil Nadu,Bluebell High,8,Chemistry,Dropped,4
+8,Meera Singh,Female,Rajasthan,Desert Bloom School,12,Economics,Completed,96
+9,Tanya Joshi,Female,Punjab,Heritage High,10,Economics,In Progress,71
+10,Sanya Rao,Female,Rajasthan,Jaipur International,9,Computer Science,Completed,97
+11,Aniket Joshi,Male,Tamil Nadu,Bluebell High,12,English,Completed,69
+12,Ishita Reddy,Female,Kerala,Crescent High,10,Computer Science,Completed,100
+13,Ishita Rao,Female,Telangana,Sunrise International,10,English,Completed,80
+14,Karan Yadav,Male,Rajasthan,Desert Bloom School,7,Physics,In Progress,56
+15,Shreya Singh,Female,Rajasthan,Desert Bloom School,10,Physics,Completed,76
+16,Tanya Rao,Female,Punjab,Heritage High,3,Economics,Completed,68
+17,Raghav Shah,Male,Punjab,Heritage High,3,History,Dropped,31
+18,Aditya Deshmukh,Male,Telangana,Sunrise International,1,Mathematics,In Progress,86
+19,Shreya Joshi,Female,Punjab,Golden Temple School,5,English,Dropped,7
+20,Karan Shah,Male,Maharashtra,Skyline Academy,12,Economics,In Progress,61
+21,Aniket Yadav,Male,Rajasthan,Desert Bloom School,7,Chemistry,Completed,93
+22,Aniket Deshmukh,Male,Punjab,Royal Public School,10,Computer Science,Completed,65
+23,Harsh Gupta,Male,Punjab,Golden Temple School,2,Computer Science,In Progress,95
+24,Dev Deshmukh,Male,Telangana,Elite Public School,6,Mathematics,Completed,63
+25,Aarav Kumar,Male,Kerala,St. Mary's Convent,8,Chemistry,In Progress,60
+26,Harsh Rao,Male,Punjab,Golden Temple School,1,English,Dropped,18
+27,Aniket Kumar,Male,Rajasthan,Rajputana Public School,6,History,Completed,65
+28,Rajesh Sharma,Male,Kerala,Crescent High,10,Economics,Completed,94
+29,Neha Joshi,Female,Rajasthan,Jaipur International,11,Chemistry,In Progress,77
+30,Rohan Rao,Male,Karnataka,Green Valley High,12,English,Completed,77
+31,Ishita Kumar,Female,Karnataka,Green Valley High,3,Mathematics,Completed,73
+32,Pranav Nair,Male,Karnataka,St. Joseph's School,12,Economics,In Progress,60
+33,Kabir Patel,Male,Karnataka,St. Joseph's School,3,Physics,Dropped,21
+34,Nikhil Patel,Male,Telangana,Sunrise International,1,Physics,In Progress,86
+35,Harsh Shah,Male,Rajasthan,Jaipur International,12,Biology,Dropped,51
+36,Sakshi Singh,Female,Karnataka,St. Joseph's School,7,Mathematics,In Progress,79
+37,Vikram Bose,Male,Gujarat,Harmony Academy,5,Physics,Dropped,43
+38,Karan Joshi,Male,Telangana,Sunrise International,9,Biology,Dropped,4
+39,Nikhil Patel,Male,Maharashtra,Hilltop School,5,Mathematics,Completed,89
+40,Shreya Sharma,Female,Tamil Nadu,Sacred Heart School,5,Biology,Completed,73
+41,Sakshi Nair,Female,Rajasthan,Desert Bloom School,6,Economics,In Progress,52
+42,Neha Deshmukh,Female,Gujarat,Bright Future School,5,English,Dropped,30
+43,Neha Shah,Female,Karnataka,Green Valley High,8,Physics,Completed,91
+44,Rajesh Patel,Male,Tamil Nadu,Sacred Heart School,8,Computer Science,In Progress,63
+45,Meera Bose,Female,Maharashtra,Riverdale High,8,Economics,Dropped,43
+46,Kabir Reddy,Male,Kerala,Crescent High,12,Biology,In Progress,82
+47,Aditya Deshmukh,Male,Karnataka,St. Joseph's School,12,Biology,In Progress,71
+48,Shreya Gupta,Female,Gujarat,Bright Future School,5,Physics,Completed,67
+49,Tanya Yadav,Female,Karnataka,National Public School,10,Physics,Completed,78
+50,Aarav Bose,Male,Rajasthan,Jaipur International,5,Mathematics,In Progress,57
+51,Aditya Sharma,Male,Rajasthan,Jaipur International,8,Mathematics,Completed,71
+52,Shreya Patel,Female,Tamil Nadu,Evergreen Academy,8,Economics,In Progress,62
+53,Aditya Joshi,Male,Gujarat,Silver Oak High,6,Biology,Completed,74
+54,Nikhil Sharma,Male,Karnataka,Green Valley High,7,History,Completed,82
+55,Yash Bose,Male,Rajasthan,Jaipur International,2,Biology,Dropped,20
+56,Vikram Joshi,Male,Kerala,Lotus Public School,2,Physics,Completed,96
+57,Pranav Gupta,Male,Punjab,Royal Public School,2,English,Dropped,26
+58,Ananya Pillai,Female,Karnataka,Green Valley High,1,History,In Progress,51
+59,Neha Yadav,Female,Tamil Nadu,Sacred Heart School,2,Computer Science,Completed,100
+60,Aditya Sharma,Male,Kerala,Crescent High,11,Economics,In Progress,71
+61,Shreya Singh,Female,Maharashtra,Hilltop School,3,Mathematics,In Progress,84
+62,Sakshi Yadav,Female,Punjab,Royal Public School,6,History,Dropped,58
+63,Shreya Patel,Female,Maharashtra,Hilltop School,1,Computer Science,Completed,80
+64,Raghav Patel,Male,Gujarat,Harmony Academy,11,Biology,In Progress,73
+65,Neha Shah,Female,Maharashtra,Riverdale High,8,Biology,Completed,78
+66,Yash Rao,Male,Punjab,Heritage High,7,English,Completed,64
+67,Ananya Kumar,Female,Rajasthan,Rajputana Public School,9,Mathematics,Dropped,11
+68,Ananya Shah,Female,Kerala,Lotus Public School,12,Economics,In Progress,64
+69,Shruti Shah,Female,Telangana,Elite Public School,8,Biology,Dropped,15
+70,Ritika Singh,Female,Karnataka,Green Valley High,9,English,In Progress,95
+71,Priya Nair,Female,Punjab,Golden Temple School,8,Physics,Dropped,36
+72,Kabir Deshmukh,Male,Gujarat,Silver Oak High,5,History,In Progress,66
+73,Nandini Reddy,Female,Rajasthan,Desert Bloom School,12,Computer Science,In Progress,80
+74,Karan Deshmukh,Male,Gujarat,Silver Oak High,2,Computer Science,In Progress,69
+75,Kabir Deshmukh,Male,Punjab,Golden Temple School,8,Biology,Completed,88
+76,Sanya Deshmukh,Female,Rajasthan,Rajputana Public School,3,Economics,In Progress,59
+77,Rajesh Deshmukh,Male,Karnataka,National Public School,12,History,In Progress,52
+78,Siddharth Pillai,Male,Karnataka,Green Valley High,8,Computer Science,In Progress,87
+79,Kavya Pillai,Female,Maharashtra,Hilltop School,2,Biology,Completed,62
+80,Sanya Kumar,Female,Maharashtra,Skyline Academy,8,English,Completed,97
+81,Aniket Nair,Male,Karnataka,Green Valley High,2,Chemistry,Completed,60
+82,Diya Pillai,Female,Telangana,Global Academy,8,Biology,Completed,76
+83,Yash Yadav,Male,Tamil Nadu,Evergreen Academy,10,Biology,In Progress,65
+84,Harsh Nair,Male,Rajasthan,Rajputana Public School,1,Mathematics,In Progress,56
+85,Pooja Pillai,Female,Maharashtra,Hilltop School,2,Mathematics,Completed,68
+86,Shreya Singh,Female,Maharashtra,Skyline Academy,4,Mathematics,Completed,61
+87,Sanya Menon,Female,Punjab,Golden Temple School,8,Computer Science,Dropped,20
+88,Neha Joshi,Female,Kerala,St. Mary's Convent,4,Economics,In Progress,76
+89,Shreya Menon,Female,Kerala,Lotus Public School,3,Economics,Dropped,17
+90,Aditya Shah,Male,Maharashtra,Riverdale High,11,Physics,Dropped,60
+91,Pranav Joshi,Male,Kerala,Crescent High,9,Mathematics,In Progress,57
+92,Harsh Singh,Male,Gujarat,Silver Oak High,10,Computer Science,Dropped,12
+93,Rohan Gupta,Male,Tamil Nadu,Sacred Heart School,4,Biology,In Progress,64
+94,Priya Yadav,Female,Tamil Nadu,Evergreen Academy,12,English,In Progress,86
+95,Meera Bose,Female,Gujarat,Harmony Academy,9,Biology,Completed,60
+96,Aarav Reddy,Male,Gujarat,Bright Future School,7,English,In Progress,66
+97,Kabir Nair,Male,Maharashtra,Skyline Academy,8,Economics,Dropped,51
+98,Harsh Yadav,Male,Gujarat,Harmony Academy,12,Computer Science,Completed,90
+99,Shreya Joshi,Female,Gujarat,Silver Oak High,2,English,In Progress,84
+100,Harsh Menon,Male,Maharashtra,Hilltop School,4,Mathematics,Completed,74
+101,Rohan Menon,Male,Rajasthan,Desert Bloom School,10,Biology,In Progress,75
+102,Pooja Bose,Female,Tamil Nadu,Bluebell High,12,Chemistry,Dropped,28
+103,Rohan Singh,Male,Kerala,St. Mary's Convent,11,History,Completed,97
+104,Nandini Reddy,Female,Karnataka,National Public School,9,Chemistry,Dropped,32
+105,Priya Joshi,Female,Maharashtra,Hilltop School,1,Computer Science,Dropped,41
+106,Pranav Patel,Male,Maharashtra,Riverdale High,5,Biology,Dropped,11
+107,Siddharth Singh,Male,Rajasthan,Jaipur International,2,Biology,In Progress,55
+108,Aarav Rao,Male,Telangana,Sunrise International,7,English,Dropped,5
+109,Diya Patel,Female,Gujarat,Silver Oak High,11,Biology,Completed,84
+110,Tanya Singh,Female,Telangana,Global Academy,9,Mathematics,Completed,78
+111,Siddharth Deshmukh,Male,Maharashtra,Riverdale High,12,Physics,Dropped,5
+112,Karan Pillai,Male,Punjab,Royal Public School,4,History,Completed,76
+113,Raghav Reddy,Male,Gujarat,Harmony Academy,1,Biology,In Progress,79
+114,Aarav Nair,Male,Karnataka,Green Valley High,5,Physics,Dropped,36
+115,Pranav Nair,Male,Gujarat,Bright Future School,5,History,Dropped,21
+116,Kavya Singh,Female,Tamil Nadu,Bluebell High,7,Mathematics,Dropped,19
+117,Sanya Deshmukh,Female,Gujarat,Bright Future School,3,History,Dropped,24
+118,Aditya Nair,Male,Kerala,Crescent High,5,Economics,Completed,79
+119,Aditya Patel,Male,Maharashtra,Riverdale High,4,Biology,In Progress,76
+120,Rohan Joshi,Male,Karnataka,Green Valley High,12,Economics,In Progress,63
+121,Vikram Yadav,Male,Karnataka,National Public School,5,Computer Science,Completed,92
+122,Rajesh Patel,Male,Gujarat,Bright Future School,3,English,Dropped,31
+123,Karan Patel,Male,Maharashtra,Hilltop School,11,Computer Science,Dropped,12
+124,Neha Sharma,Female,Kerala,Crescent High,9,Biology,In Progress,85
+125,Pranav Pillai,Male,Tamil Nadu,Evergreen Academy,4,Physics,Completed,62
+126,Ishita Sharma,Female,Karnataka,St. Joseph's School,5,Physics,Completed,69
+127,Shruti Deshmukh,Female,Punjab,Golden Temple School,11,Biology,In Progress,74
+128,Karan Shah,Male,Punjab,Golden Temple School,12,Physics,Dropped,29
+129,Rajesh Reddy,Male,Karnataka,National Public School,4,English,Dropped,11
+130,Nandini Nair,Female,Karnataka,St. Joseph's School,8,English,Dropped,3
+131,Vikram Patel,Male,Telangana,Elite Public School,7,Physics,Completed,66
+132,Harsh Reddy,Male,Punjab,Royal Public School,4,History,Completed,93
+133,Aniket Gupta,Male,Karnataka,National Public School,8,Mathematics,Completed,69
+134,Ishita Patel,Female,Maharashtra,Hilltop School,4,Chemistry,Dropped,19
+135,Kabir Pillai,Male,Gujarat,Bright Future School,5,Chemistry,Completed,91
+136,Neha Patel,Female,Tamil Nadu,Evergreen Academy,2,Computer Science,Dropped,55
+137,Aditya Patel,Male,Gujarat,Bright Future School,6,English,Dropped,41
+138,Shreya Reddy,Female,Tamil Nadu,Sacred Heart School,10,Chemistry,Completed,84
+139,Ananya Bose,Female,Gujarat,Harmony Academy,6,Biology,Completed,67
+140,Ritika Singh,Female,Gujarat,Harmony Academy,3,Economics,Completed,75
+141,Diya Bose,Female,Telangana,Global Academy,4,Physics,Completed,67
+142,Aniket Pillai,Male,Maharashtra,Riverdale High,12,Physics,Completed,94
+143,Pranav Deshmukh,Male,Gujarat,Silver Oak High,9,Chemistry,Completed,85
+144,Karan Kumar,Male,Karnataka,Green Valley High,5,Computer Science,In Progress,57
+145,Nikhil Pillai,Male,Punjab,Heritage High,9,Chemistry,Completed,84
+146,Sanya Rao,Female,Rajasthan,Jaipur International,5,Biology,In Progress,53
+147,Aditya Bose,Male,Rajasthan,Rajputana Public School,5,Mathematics,Dropped,36
+148,Kavya Gupta,Female,Tamil Nadu,Sacred Heart School,3,Computer Science,In Progress,58
+149,Sakshi Yadav,Female,Punjab,Golden Temple School,7,Economics,Dropped,28
+150,Aditya Kumar,Male,Karnataka,St. Joseph's School,10,Computer Science,In Progress,54

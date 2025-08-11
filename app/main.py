@@ -5,13 +5,18 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 import pandas as pd
 from typing import Optional, Dict, Any
+from pathlib import Path
 
 from .db import SessionLocal, init_db, Summary
 from .services.llm import summarize_text, make_revision_notes
 from .config import settings
 
 app = FastAPI()
-app.mount("/static", StaticFiles(directory="app/static"), name="static")
+
+# Resolve static directory relative to this file; mount only if exists (Vercel deploy safety)
+_static_dir = (Path(__file__).parent / "static").resolve()
+if _static_dir.exists():
+    app.mount("/static", StaticFiles(directory=str(_static_dir)), name="static")
 templates = Jinja2Templates(directory="app/templates")
 templates.env.filters["tojson"] = lambda v: __import__("json").dumps(v)
 
