@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 import pandas as pd
 from typing import Optional, Dict, Any
 from pathlib import Path
+from logging import getLogger
 
 from .db import SessionLocal, init_db, Summary
 from .services.llm import summarize_text, make_revision_notes
@@ -27,12 +28,32 @@ def get_db():
     finally:
         db.close()
 
+logger = getLogger("app")
+
+def _resolve_csv_path(config_path: str) -> Path:
+    path = Path(config_path)
+    candidates = [path]
+    if not path.is_absolute():
+        # relative to app root
+        candidates.append(Path(__file__).parent / path)
+        # common layout: app/data/<file>
+        candidates.append(Path(__file__).parent / "data" / path.name)
+        # relative to repo root
+        candidates.append(Path(__file__).parent.parent / path)
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate
+    return path
+
 @app.on_event("startup")
 def startup():
     init_db()
+    csv_path = _resolve_csv_path(settings.DATA_CSV_PATH)
     try:
-        app.state.df = pd.read_csv(settings.DATA_CSV_PATH)
-    except Exception:
+        app.state.df = pd.read_csv(csv_path)
+        logger.info(f"Loaded dataset: {csv_path} shape={getattr(app.state.df, 'shape', None)}")
+    except Exception as exc:
+        logger.warning(f"Failed to load dataset from {csv_path}: {exc}")
         app.state.df = pd.DataFrame()
 
 @app.get("/", response_class=HTMLResponse)
