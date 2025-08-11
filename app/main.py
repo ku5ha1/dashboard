@@ -24,7 +24,27 @@ _static_dir = (Path(__file__).parent / "static").resolve()
 if _static_dir.exists():
     app.mount("/static", StaticFiles(directory=str(_static_dir)), name="static")
 templates = Jinja2Templates(directory="app/templates")
-templates.env.filters["tojson"] = lambda v: __import__("json").dumps(v)
+def safe_json_dumps(v):
+    """Safely serialize objects to JSON, handling Decimal types and other edge cases"""
+    import json
+    from decimal import Decimal
+    
+    def convert_decimals(obj):
+        if isinstance(obj, Decimal):
+            return float(obj)
+        elif isinstance(obj, dict):
+            return {k: convert_decimals(v) for k, v in obj.items()}
+        elif isinstance(obj, list):
+            return [convert_decimals(item) for item in obj]
+        return obj
+    
+    try:
+        converted = convert_decimals(v)
+        return json.dumps(converted, default=str)
+    except Exception as e:
+        return f"Error serializing: {str(e)}"
+
+templates.env.filters["tojson"] = safe_json_dumps
 
 def get_db():
     db = SessionLocal()
@@ -367,7 +387,15 @@ def basic_query_to_agg_db(q: str, session: Session, table_name: str) -> Dict[str
         
         logger.info(f"Executing query: {sql}")
         rows = session.execute(text(sql)).mappings().all()
-        data = [dict(r) for r in rows]
+        # Convert Decimal types to float for JSON serialization
+        data = []
+        for row in rows:
+            row_dict = dict(row)
+            # Convert Decimal values to float
+            for key, value in row_dict.items():
+                if hasattr(value, 'as_tuple'):  # Check if it's a Decimal
+                    row_dict[key] = float(value)
+            data.append(row_dict)
         logger.info(f"Query returned {len(data)} rows")
         
         if not data:
