@@ -13,6 +13,7 @@ from .config import settings
 app = FastAPI()
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 templates = Jinja2Templates(directory="app/templates")
+templates.env.filters["tojson"] = lambda v: __import__("json").dumps(v)
 
 def get_db():
     db = SessionLocal()

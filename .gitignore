@@ -6,4 +6,7 @@ __pycache__/
 .Python
 db.sqlite3
 .env
+app.db
+app/static/audio/
+GOOGLE_APPLICATION_CREDENTIALS.json
 GOOGLE_APPLICATION_CREDENTIALS.json

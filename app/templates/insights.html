@@ -1,21 +1,90 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="bg-white p-4 rounded shadow">
-  <form method="post" action="/dashboard" class="space-y-3">
-    <input name="question" class="w-full border rounded p-2" placeholder="Ask about the dataset (e.g., 'average score by state')" value="{{ question or '' }}" />
-    <button type="submit" class="px-4 py-2 bg-indigo-600 text-white rounded">Ask</button>
-  </form>
-  {% if narrative %}
-  <div class="mt-4">
-    <h2 class="font-semibold mb-2">AI Insight</h2>
-    <div class="whitespace-pre-line">{{ narrative }}</div>
+<div class="grid md:grid-cols-2 gap-6">
+  <!-- Left: Inputs and Insights -->
+  <div class="bg-white p-5 rounded-xl shadow">
+    <form method="post" action="/dashboard" class="space-y-3">
+      <label class="block text-sm font-medium text-gray-700">Ask a question</label>
+      <div class="flex gap-2">
+        <input name="question" class="flex-1 border rounded-lg p-2 focus:ring-2 focus:ring-indigo-500 focus:outline-none" placeholder="e.g., average score by state" value="{{ question or '' }}" />
+        <button type="submit" class="px-4 py-2 bg-indigo-600 text-white rounded-lg">Ask</button>
+      </div>
+    </form>
+
+    {% if narrative %}
+    <div class="mt-6">
+      <h2 class="text-lg font-semibold mb-2">AI Insight</h2>
+      <div class="whitespace-pre-line text-gray-800">{{ narrative }}</div>
+    </div>
+    {% endif %}
+
+    {% if result and result.data %}
+    <div class="mt-6">
+      <details class="group">
+        <summary class="cursor-pointer text-sm text-gray-600 hover:text-gray-800">Data preview (JSON)</summary>
+        <pre class="mt-2 text-xs bg-gray-50 p-3 rounded border overflow-auto">{{ result.data | tojson }}</pre>
+      </details>
+    </div>
+    {% endif %}
   </div>
-  {% endif %}
-  {% if result and result.data %}
-  <div class="mt-4">
-    <h2 class="font-semibold mb-2">Result Data (JSON)</h2>
-    <pre class="text-sm bg-gray-100 p-3 rounded overflow-auto">{{ result.data | tojson }}</pre>
+
+  <!-- Right: Chart -->
+  <div class="bg-white p-5 rounded-xl shadow">
+    <div class="flex items-center justify-between mb-3">
+      <h2 class="text-lg font-semibold">Chart</h2>
+      <div class="space-x-2">
+        <button id="btnBar" class="px-3 py-1 border rounded">Bar</button>
+        <button id="btnPie" class="px-3 py-1 border rounded">Pie</button>
+      </div>
+    </div>
+    {% if result and result.data %}
+      <canvas id="insightsChart" height="140"></canvas>
+    {% else %}
+      <p class="text-gray-500">Run a query to see the chart.</p>
+    {% endif %}
   </div>
-  {% endif %}
 </div>
+
+{% if result and result.data %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+  (function(){
+    const raw = {{ result.data | tojson | safe }};
+    const groupbyField = {{ result.groupby | tojson | safe }};
+    const labels = raw.map(r => r[groupbyField]);
+    const values = raw.map(r => Number(r.value));
+
+    let chartType = 'bar';
+    let chart;
+
+    function render(type){
+      const ctx = document.getElementById('insightsChart').getContext('2d');
+      if (chart) chart.destroy();
+      chart = new Chart(ctx, {
+        type: type,
+        data: {
+          labels: labels,
+          datasets: [{
+            label: `${groupbyField} vs value`,
+            data: values,
+            backgroundColor: type === 'pie' ? labels.map((_, i) => `hsl(${(i*47)%360} 90% 65%)`) : 'rgba(59,130,246,0.6)',
+            borderColor: type === 'pie' ? '#fff' : 'rgba(59,130,246,1)',
+            borderWidth: 1
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: { legend: { display: type === 'pie' } },
+          scales: type === 'pie' ? {} : { y: { beginAtZero: true } }
+        }
+      });
+    }
+
+    document.getElementById('btnBar').addEventListener('click', function(e){ e.preventDefault(); render('bar'); });
+    document.getElementById('btnPie').addEventListener('click', function(e){ e.preventDefault(); render('pie'); });
+
+    render(chartType);
+  })();
+</script>
+{% endif %}
 {% endblock %}
