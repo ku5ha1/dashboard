@@ -12,4 +12,3 @@ google-cloud-translate
 elevenlabs
 vercel-blob
 psycopg[binary]
-psycopg2
