@@ -63,74 +63,43 @@ def startup():
     app.state.dataset_source = None
     app.state.dataset_table = None
     
-    # Try database first
+    # Connect to Neon database
     try:
-        from sqlalchemy import text, inspect
+        from sqlalchemy import text
         with SessionLocal() as db:
             # Test database connection
             try:
                 db.execute(text("SELECT 1")).scalar()
-                logger.info("Database connection successful")
+                logger.info("Neon database connection successful")
             except Exception as e:
-                logger.error(f"Database connection test failed: {e}")
-                raise
+                logger.error(f"Neon database connection failed: {e}")
+                return
             
-            # Get list of tables
+            # We know we're using the education table
+            table_name = "education"
             try:
-                inspector = inspect(db.get_bind())
-                tables = inspector.get_table_names()
-                logger.info(f"Found tables in database: {tables}")
+                # Check if table has data
+                count = db.execute(text(f'SELECT COUNT(*) FROM "{table_name}"')).scalar()
+                logger.info(f"Found {count} rows in {table_name} table")
+                
+                if count > 0:
+                    # Get column names
+                    cols = db.execute(text(f'SELECT * FROM "{table_name}" LIMIT 0')).keys()
+                    logger.info(f"Table columns: {cols}")
+                    
+                    # Set as data source
+                    app.state.dataset_source = "db"
+                    app.state.dataset_table = table_name
+                    logger.info(f"Successfully connected to Neon database table '{table_name}'")
+                else:
+                    logger.error(f"Table {table_name} exists but is empty")
             except Exception as e:
-                logger.warning(f"Could not inspect tables: {e}")
-                tables = ["education"]
-            
-            # Try to use education table first
-            if "education" in tables:
-                tables = ["education"] + [t for t in tables if t != "education"]
-            
-            # Try each table
-            for table_name in tables:
-                try:
-                    # Check if table exists and has data
-                    count = db.execute(text(f'SELECT COUNT(*) FROM "{table_name}"')).scalar()
-                    if count > 0:
-                        # Verify table structure
-                        cols = db.execute(text(f'SELECT * FROM "{table_name}" LIMIT 0')).keys()
-                        required = {"state", "gender", "class", "school_name", "marks"}
-                        if all(col in cols for col in required):
-                            app.state.dataset_source = "db"
-                            app.state.dataset_table = table_name
-                            logger.info(f"Using DB table '{table_name}' for insights - contains {count} rows with columns: {cols}")
-                            return
-                        else:
-                            logger.warning(f"Table {table_name} missing required columns. Has: {cols}")
-                    else:
-                        logger.warning(f"Table {table_name} exists but is empty")
-                except Exception as e:
-                    logger.warning(f"Could not query table {table_name}: {e}")
-                    continue
+                logger.error(f"Error accessing table {table_name}: {e}")
     except Exception as e:
         logger.error(f"Database setup failed: {e}")
     
-    # Fallback to CSV if database not available
-    if pd is not None:
-        csv_path = _resolve_csv_path(settings.DATA_CSV_PATH)
-        try:
-            logger.info(f"Attempting to load CSV from {csv_path}")
-            app.state.df = pd.read_csv(csv_path)
-            if not app.state.df.empty:
-                app.state.dataset_source = "csv"
-                logger.info(f"Successfully loaded CSV dataset with shape {app.state.df.shape}")
-            else:
-                logger.warning("CSV file loaded but contains no data")
-        except Exception as e:
-            logger.error(f"Failed to load CSV data: {e}")
-            app.state.df = None
-    else:
-        logger.warning("Pandas not available for CSV fallback")
-    
     if not app.state.dataset_source:
-        logger.error("No valid data source found - application may not work correctly")
+        logger.error("Failed to connect to Neon database - application will not work correctly")
     if pd is not None:
         csv_path = _resolve_csv_path(settings.DATA_CSV_PATH)
         try:
@@ -243,53 +212,49 @@ def _choose_groupby_and_metric(q: str, available_cols: Optional[list] = None) ->
 def basic_query_to_agg_db(q: str, session: Session, table_name: str) -> Dict[str, Any]:
     from sqlalchemy import text
     
-    # First verify table has data
-    try:
-        count = session.execute(text(f'SELECT COUNT(*) FROM "{table_name}"')).scalar()
-        logger.info(f"Table {table_name} contains {count} rows")
-        if count == 0:
-            logger.error(f"Table {table_name} is empty")
-            return {"data": [], "groupby": None, "metric": None}
-    except Exception as e:
-        logger.error(f"Failed to check row count in {table_name}: {e}")
-        return {"data": [], "groupby": None, "metric": None}
+    # Define known columns and their metrics
+    COLUMNS = {
+        "state": "State distribution",
+        "gender": "Gender distribution",
+        "class": "Class distribution",
+        "school_name": "School distribution",
+        "marks": "Student marks",
+        "course_name": "Course distribution",
+        "completion_status": "Completion status"
+    }
     
-    # Get actual columns from the table
-    try:
-        cols_query = f'SELECT * FROM "{table_name}" LIMIT 1'
-        result = session.execute(text(cols_query))
-        available_cols = set(result.keys())
-        logger.info(f"Available columns in {table_name}: {available_cols}")
-        
-        # Verify we have the minimum required columns
-        required_cols = {"state", "gender", "class", "school_name", "marks"}
-        missing_cols = required_cols - available_cols
-        if missing_cols:
-            logger.error(f"Missing required columns: {missing_cols}")
-            return {"data": [], "groupby": None, "metric": None}
-            
-    except Exception as e:
-        logger.error(f"Failed to get columns from {table_name}: {e}")
-        return {"data": [], "groupby": None, "metric": None}
-
-    # Use actual columns for grouping
-    choice = _choose_groupby_and_metric(q, list(available_cols))
-    gb = choice["gb"]
-    metric = choice["metric"]
+    # Get query intent
+    q_low = q.lower()
+    gb = None
+    metric = None
     
-    if not gb or gb not in available_cols:
-        logger.warning(f"Invalid grouping column '{gb}'. Available columns: {available_cols}")
-        return {"data": [], "groupby": None, "metric": None}
+    # Try to find grouping column from query
+    for col, description in COLUMNS.items():
+        if any(term in q_low for term in [col.lower(), description.lower()]):
+            gb = col
+            break
+    
+    # Default to state if no grouping found
+    if not gb:
+        gb = "state"
+        logger.info(f"No specific grouping found in query, defaulting to {gb}")
+    
+    # Determine if we should show marks or counts
+    if any(term in q_low for term in ["marks", "score", "performance", "grade", "average"]):
+        metric = "marks"
+    
+    logger.info(f"Analyzing by {gb}" + (f" with {metric} values" if metric else " with counts"))
     
     try:
         # Build and execute query
-        if metric and metric in available_cols:
+        if metric:
             sql = f'''
                 SELECT 
                     "{gb}" as "{gb}",
                     ROUND(AVG(CAST("{metric}" as FLOAT))::NUMERIC, 2) as value,
                     COUNT(*) as count
                 FROM "{table_name}"
+                WHERE "{metric}" IS NOT NULL
                 GROUP BY "{gb}"
                 ORDER BY value DESC
             '''
@@ -303,16 +268,21 @@ def basic_query_to_agg_db(q: str, session: Session, table_name: str) -> Dict[str
                 ORDER BY value DESC
             '''
         
-        logger.info(f"Executing SQL: {sql}")
+        logger.info(f"Executing query: {sql}")
         rows = session.execute(text(sql)).mappings().all()
         data = [dict(r) for r in rows]
         logger.info(f"Query returned {len(data)} rows")
         
         if not data:
-            logger.warning(f"Query returned no data for grouping '{gb}' and metric '{metric}'")
+            logger.warning("Query returned no data")
             return {"data": [], "groupby": None, "metric": None}
             
-        return {"data": data, "groupby": gb, "metric": metric or "count"}
+        return {
+            "data": data, 
+            "groupby": gb, 
+            "metric": metric or "count",
+            "description": COLUMNS.get(gb, gb)
+        }
     except Exception as e:
         logger.error(f"Query failed: {e}")
         return {"data": [], "groupby": None, "metric": None}
