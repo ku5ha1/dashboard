@@ -1,1 +1,8 @@
-.env
+fastapi
+uvicorn
+jinja2
+pandas
+python-dotenv
+requests
+openai
+python-multipart
