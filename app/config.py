@@ -26,4 +26,7 @@ class Settings(BaseSettings):
     UVICORN_PORT: int = 8000
     LOG_LEVEL: str = "info"
 
+    # Optional: Vercel Blob storage
+    BLOB_READ_WRITE_TOKEN: Optional[str] = None
+
 settings = Settings()

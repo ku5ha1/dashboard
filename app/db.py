@@ -2,6 +2,7 @@ from sqlalchemy import create_engine, Column, Integer, Text, DateTime, func
 from sqlalchemy.orm import sessionmaker, declarative_base
 from pathlib import Path
 from logging import getLogger
+from typing import Optional
 from .config import settings
 
 logger = getLogger("app.db")
@@ -62,3 +63,26 @@ class Summary(Base):
 
 def init_db():
     Base.metadata.create_all(bind=engine)
+
+# Optional: simple Blob-based persistence helpers (for Vercel)
+try:
+    from vercel_blob import put, list as blob_list, get as blob_get
+    import json
+    import os
+
+    def save_summary_blob(input_text: str, summary_text: str) -> Optional[str]:
+        token = settings.BLOB_READ_WRITE_TOKEN
+        if not token:
+            return None
+        payload = {
+            "input_text": input_text,
+            "summary_text": summary_text,
+        }
+        data = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+        # add random suffix server-side
+        resp = put("summaries/summary.json", data, {"access": "private", "addRandomSuffix": True, "contentType": "application/json"})
+        return resp.get("url")
+except Exception:
+    # Blob SDK not available; skip
+    def save_summary_blob(input_text: str, summary_text: str) -> Optional[str]:
+        return None

@@ -10,3 +10,4 @@ app.db
 app/static/audio/
 GOOGLE_APPLICATION_CREDENTIALS.json
 GOOGLE_APPLICATION_CREDENTIALS.json
+scripts/

@@ -8,7 +8,7 @@ from typing import Optional, Dict, Any
 from pathlib import Path
 from logging import getLogger
 
-from .db import SessionLocal, init_db, Summary
+from .db import SessionLocal, init_db, Summary, save_summary_blob
 from .services.llm import summarize_text, make_revision_notes
 from .config import settings
 
@@ -48,13 +48,30 @@ def _resolve_csv_path(config_path: str) -> Path:
 @app.on_event("startup")
 def startup():
     init_db()
-    csv_path = _resolve_csv_path(settings.DATA_CSV_PATH)
+    # Try loading from DB first (Neon), fall back to CSV
     try:
-        app.state.df = pd.read_csv(csv_path)
-        logger.info(f"Loaded dataset: {csv_path} shape={getattr(app.state.df, 'shape', None)}")
-    except Exception as exc:
-        logger.warning(f"Failed to load dataset from {csv_path}: {exc}")
-        app.state.df = pd.DataFrame()
+        from sqlalchemy import text
+        with SessionLocal() as db:
+            conn = db.connection().connection
+            # Attempt to read a likely table name
+            for table_name in ["education", "dataset", "data_education"]:
+                try:
+                    app.state.df = pd.read_sql(f"select * from {table_name}", db.bind)
+                    if not app.state.df.empty:
+                        logger.info(f"Loaded dataset from DB table '{table_name}' shape={app.state.df.shape}")
+                        break
+                except Exception:
+                    continue
+            else:
+                raise RuntimeError("No dataset table found, falling back to CSV")
+    except Exception:
+        csv_path = _resolve_csv_path(settings.DATA_CSV_PATH)
+        try:
+            app.state.df = pd.read_csv(csv_path)
+            logger.info(f"Loaded dataset: {csv_path} shape={getattr(app.state.df, 'shape', None)}")
+        except Exception as exc:
+            logger.warning(f"Failed to load dataset from {csv_path}: {exc}")
+            app.state.df = pd.DataFrame()
 
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request):
@@ -78,7 +95,12 @@ async def summariser_post(request: Request, input_text: str = Form(...), db: Ses
         saved_id = row.id
     except Exception as exc:
         db.rollback()
-        save_error = f"Could not save to DB (running read-only or ephemeral FS). {exc}"
+        # Fallback: save to Vercel Blob if configured
+        blob_url = save_summary_blob(input_text, summary)
+        if blob_url:
+            save_error = f"Saved to Blob: {blob_url} (DB unavailable)"
+        else:
+            save_error = f"Could not save to DB (and Blob not configured). {exc}"
     return templates.TemplateResponse(
         "summariser.html",
         {"request": request, "title": "Summariser", "summary": summary, "saved_id": saved_id, "save_error": save_error, "input_text": input_text},
