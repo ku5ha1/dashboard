@@ -153,33 +153,116 @@ async def revise_generate(request: Request, summary_id: int, db: Session = Depen
 # Insights (minimal)
 def _choose_groupby_and_metric(q: str, available_cols: Optional[list] = None) -> Dict[str, str]:
     q_low = (q or "").lower()
-    candidate_gbs = ["state", "gender", "class", "school"]
+    # Update candidates to match actual column names
+    candidate_gbs = ["state", "gender", "class", "school_name"]
     gb = None
+    
+    # Map common terms to actual column names
+    column_mapping = {
+        "school": "school_name",
+        "score": "marks",
+        "grade": "marks",
+        "performance": "marks"
+    }
+    
+    # First try exact matches
     for c in candidate_gbs:
         if c in q_low:
             gb = c
             break
+    
+    # Then try mapped terms
+    if gb is None:
+        for term, col in column_mapping.items():
+            if term in q_low and col in candidate_gbs:
+                gb = col
+                break
+    
     if gb is None:
         gb = available_cols[0] if available_cols else "state"
-    metric = "score" if (available_cols and "score" in available_cols) or ("score" in q_low) else None
+        
+    # Always use marks as the metric if available
+    metric = "marks" if (available_cols and "marks" in available_cols) or any(term in q_low for term in ["marks", "score", "grade", "performance"]) else None
+    
+    logger.info(f"Chose grouping '{gb}' and metric '{metric}' from query: {q}")
     return {"gb": gb, "metric": metric}
 
 def basic_query_to_agg_db(q: str, session: Session, table_name: str) -> Dict[str, Any]:
     from sqlalchemy import text
-    # Restrict identifiers to safe set
-    allowed_cols = {"state", "gender", "class", "school", "score", "students"}
-    choice = _choose_groupby_and_metric(q, list(allowed_cols))
+    
+    # First verify table has data
+    try:
+        count = session.execute(text(f'SELECT COUNT(*) FROM "{table_name}"')).scalar()
+        logger.info(f"Table {table_name} contains {count} rows")
+        if count == 0:
+            logger.error(f"Table {table_name} is empty")
+            return {"data": [], "groupby": None, "metric": None}
+    except Exception as e:
+        logger.error(f"Failed to check row count in {table_name}: {e}")
+        return {"data": [], "groupby": None, "metric": None}
+    
+    # Get actual columns from the table
+    try:
+        cols_query = f'SELECT * FROM "{table_name}" LIMIT 1'
+        result = session.execute(text(cols_query))
+        available_cols = set(result.keys())
+        logger.info(f"Available columns in {table_name}: {available_cols}")
+        
+        # Verify we have the minimum required columns
+        required_cols = {"state", "gender", "class", "school_name", "marks"}
+        missing_cols = required_cols - available_cols
+        if missing_cols:
+            logger.error(f"Missing required columns: {missing_cols}")
+            return {"data": [], "groupby": None, "metric": None}
+            
+    except Exception as e:
+        logger.error(f"Failed to get columns from {table_name}: {e}")
+        return {"data": [], "groupby": None, "metric": None}
+
+    # Use actual columns for grouping
+    choice = _choose_groupby_and_metric(q, list(available_cols))
     gb = choice["gb"]
     metric = choice["metric"]
-    if gb not in allowed_cols:
+    
+    if not gb or gb not in available_cols:
+        logger.warning(f"Invalid grouping column '{gb}'. Available columns: {available_cols}")
         return {"data": [], "groupby": None, "metric": None}
-    if metric == "score":
-        sql = f'SELECT "{gb}" as "{gb}", AVG("score") as value FROM {table_name} GROUP BY "{gb}" ORDER BY value DESC'
-    else:
-        sql = f'SELECT "{gb}" as "{gb}", COUNT(*) as value FROM {table_name} GROUP BY "{gb}" ORDER BY value DESC'
-    rows = session.execute(text(sql)).mappings().all()
-    data = [dict(r) for r in rows]
-    return {"data": data, "groupby": gb, "metric": metric or "count"}
+    
+    try:
+        # Build and execute query
+        if metric and metric in available_cols:
+            sql = f'''
+                SELECT 
+                    "{gb}" as "{gb}",
+                    ROUND(AVG(CAST("{metric}" as FLOAT))::NUMERIC, 2) as value,
+                    COUNT(*) as count
+                FROM "{table_name}"
+                GROUP BY "{gb}"
+                ORDER BY value DESC
+            '''
+        else:
+            sql = f'''
+                SELECT 
+                    "{gb}" as "{gb}",
+                    COUNT(*) as value
+                FROM "{table_name}"
+                GROUP BY "{gb}"
+                ORDER BY value DESC
+            '''
+        
+        logger.info(f"Executing SQL: {sql}")
+        rows = session.execute(text(sql)).mappings().all()
+        data = [dict(r) for r in rows]
+        logger.info(f"Query returned {len(data)} rows")
+        
+        if not data:
+            logger.warning(f"Query returned no data for grouping '{gb}' and metric '{metric}'")
+            return {"data": [], "groupby": None, "metric": None}
+            
+        return {"data": data, "groupby": gb, "metric": metric or "count"}
+    except Exception as e:
+        logger.error(f"Query failed: {e}")
+        return {"data": [], "groupby": None, "metric": None}
 
 def basic_query_to_agg_csv(q: str, df) -> Dict[str, Any]:
     if pd is None or df is None or getattr(df, "empty", True):
