@@ -1,4 +1,4 @@
-# Education AI POC
+# Dynamic Dashboard
 
 FastAPI + Tailwind app for text summarization, revision, and insights from education datasets.
 
