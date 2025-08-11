@@ -1,6 +1,6 @@
 from typing import Optional, Dict, Any
 from deep_translator import GoogleTranslator
-from gtts import gTTS
+from elevenlabs import ElevenLabs
 import base64
 from logging import getLogger
 
@@ -59,34 +59,50 @@ class TranslationTTSService:
             return {"error": f"Translation failed: {str(e)}"}
     
     def text_to_speech(self, text: str, language: str = 'en', slow: bool = False) -> Dict[str, Any]:
-        """Convert text to speech and return base64 encoded audio"""
+        """Convert text to speech using ElevenLabs and return base64 encoded audio"""
         try:
-            # Create TTS object
-            tts = gTTS(text=text, lang=language, slow=slow)
+            # Get API key and voice ID from environment
+            import os
+            api_key = os.getenv("ELEVENLABS_API_KEY")
+            voice_id = os.getenv("ELEVENLABS_VOICE_ID")
             
-            # Use BytesIO to store audio in memory instead of saving to disk
-            from io import BytesIO
-            audio_buffer = BytesIO()
-            tts.write_to_fp(audio_buffer)
+            if not api_key:
+                return {"error": "ElevenLabs API key not configured"}
             
-            # Get the audio data and encode to base64
-            audio_buffer.seek(0)
-            audio_data = audio_buffer.getvalue()
-            audio_base64 = base64.b64encode(audio_data).decode('utf-8')
+            if not voice_id:
+                return {"error": "ElevenLabs Voice ID not configured"}
             
-            # Close the buffer
-            audio_buffer.close()
+            # Create ElevenLabs client
+            client = ElevenLabs(api_key=api_key)
+            
+            # Generate audio using ElevenLabs
+            audio = client.text_to_speech.convert(
+                voice_id=voice_id,
+                output_format="mp3_44100_128",  # MP3 format for better compatibility
+                text=text,
+                model_id="eleven_multilingual_v2"  # Best for multiple languages
+            )
+            
+            # Convert generator to bytes if needed
+            if hasattr(audio, '__iter__') and not isinstance(audio, bytes):
+                # If it's a generator/iterator, convert to bytes
+                audio_bytes = b''.join(audio)
+            else:
+                audio_bytes = audio
+            
+            # Convert audio to base64
+            audio_base64 = base64.b64encode(audio_bytes).decode('utf-8')
             
             return {
                 "success": True,
                 "audio_base64": audio_base64,
-                "audio_format": "audio/mp3",
+                "audio_format": "audio/mp3",  # Changed back to MP3 for better compatibility
                 "text": text,
                 "language": language,
                 "language_name": self.supported_languages.get(language, language)
             }
         except Exception as e:
-            logger.error(f"Text-to-speech failed: {e}")
+            logger.error(f"ElevenLabs TTS failed: {e}")
             return {"error": f"Text-to-speech failed: {str(e)}"}
     
     def get_supported_languages(self) -> Dict[str, str]:

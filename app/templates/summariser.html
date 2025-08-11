@@ -36,8 +36,14 @@
         
         <!-- TTS Controls -->
         <div class="flex items-center space-x-3">
-          <button onclick="playTranslatedText()" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 flex items-center">
-            <span class="mr-2">🔊</span> Listen
+          <button id="playBtn" onclick="playTranslatedText()" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 flex items-center">
+            <span class="mr-2">▶️</span> Play
+          </button>
+          <button id="pauseBtn" onclick="pauseAudio()" class="px-4 py-2 bg-yellow-600 text-white rounded hover:bg-yellow-700 flex items-center hidden">
+            <span class="mr-2">⏸️</span> Pause
+          </button>
+          <button id="stopBtn" onclick="stopAudio()" class="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 flex items-center hidden">
+            <span class="mr-2">⏹️</span> Stop
           </button>
           <button onclick="copyTranslatedText()" class="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700">
             Copy
@@ -55,6 +61,8 @@
 <script>
 let currentTranslatedText = '';
 let currentAudioBase64 = '';
+let currentAudio = null;
+let isPlaying = false;
 
 async function translateSummary() {
   const summaryText = `{{ summary or '' }}`;
@@ -123,10 +131,63 @@ async function generateAudio(text, language) {
 
 function playTranslatedText() {
   if (currentAudioBase64) {
-    const audio = new Audio(`data:audio/mp3;base64,${currentAudioBase64}`);
-    audio.play();
+    if (currentAudio && isPlaying) {
+      // Resume playback
+      currentAudio.play();
+      isPlaying = true;
+      updateButtonStates();
+    } else {
+      // Start new playback
+      if (currentAudio) {
+        currentAudio.pause();
+        currentAudio.currentTime = 0;
+      }
+      currentAudio = new Audio(`data:audio/mp3;base64,${currentAudioBase64}`);
+      
+      currentAudio.addEventListener('ended', () => {
+        isPlaying = false;
+        updateButtonStates();
+      });
+      
+      currentAudio.play();
+      isPlaying = true;
+      updateButtonStates();
+    }
   } else {
     alert('Audio not ready. Please wait a moment and try again.');
+  }
+}
+
+function pauseAudio() {
+  if (currentAudio && isPlaying) {
+    currentAudio.pause();
+    isPlaying = false;
+    updateButtonStates();
+  }
+}
+
+function stopAudio() {
+  if (currentAudio) {
+    currentAudio.pause();
+    currentAudio.currentTime = 0;
+    isPlaying = false;
+    updateButtonStates();
+  }
+}
+
+function updateButtonStates() {
+  const playBtn = document.getElementById('playBtn');
+  const pauseBtn = document.getElementById('pauseBtn');
+  const stopBtn = document.getElementById('stopBtn');
+  
+  if (isPlaying) {
+    playBtn.classList.add('hidden');
+    pauseBtn.classList.remove('hidden');
+    stopBtn.classList.remove('hidden');
+  } else {
+    playBtn.classList.remove('hidden');
+    pauseBtn.classList.add('hidden');
+    stopBtn.classList.add('hidden');
   }
 }
 

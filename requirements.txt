@@ -10,4 +10,4 @@ openai
 psycopg[binary]
 pandas
 deep-translator
-gTTS
+elevenlabs
