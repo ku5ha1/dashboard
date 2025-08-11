@@ -1,8 +1,55 @@
 from sqlalchemy import create_engine, Column, Integer, Text, DateTime, func
 from sqlalchemy.orm import sessionmaker, declarative_base
+from pathlib import Path
+from logging import getLogger
 from .config import settings
 
-engine = create_engine(settings.DATABASE_URL, connect_args={"check_same_thread": False} if settings.DATABASE_URL.startswith("sqlite") else {})
+logger = getLogger("app.db")
+
+def _resolve_sqlite_url(database_url: str) -> str:
+    if not database_url.startswith("sqlite"):
+        return database_url
+
+    # Extract filesystem path
+    fs_path = None
+    if database_url.startswith("sqlite:////"):  # absolute
+        fs_path = Path(database_url[len("sqlite:////"):])
+    elif database_url.startswith("sqlite:///"):  # relative
+        fs_path = Path(database_url[len("sqlite///"):])
+        if str(fs_path).startswith(" "):
+            fs_path = Path(str(fs_path).strip())
+        if not fs_path.is_absolute():
+            fs_path = (Path(__file__).parent.parent / fs_path).resolve()
+    else:
+        return database_url
+
+    # Try to ensure directory exists and is writable; fall back to /tmp on failure (Vercel)
+    try:
+        fs_path.parent.mkdir(parents=True, exist_ok=True)
+        # Test write permission
+        with open(fs_path, "a", encoding="utf-8") as _:
+            pass
+        resolved = f"sqlite:////{fs_path.as_posix()}"
+        logger.info(f"Using SQLite at {resolved}")
+        return resolved
+    except Exception as exc:
+        tmp_path = Path("/tmp/app.db")
+        try:
+            with open(tmp_path, "a", encoding="utf-8") as _:
+                pass
+            resolved = f"sqlite:////{tmp_path.as_posix()}"
+            logger.warning(f"Falling back to {resolved} due to: {exc}")
+            return resolved
+        except Exception as exc2:
+            logger.error(f"Failed to prepare SQLite file: {exc2}")
+            return database_url
+
+
+final_database_url = _resolve_sqlite_url(settings.DATABASE_URL)
+engine = create_engine(
+    final_database_url,
+    connect_args={"check_same_thread": False} if final_database_url.startswith("sqlite") else {},
+)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
