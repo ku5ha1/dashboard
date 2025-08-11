@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="bg-white p-4 rounded shadow">
+  <form method="post" action="/dashboard" class="space-y-3">
+    <input name="question" class="w-full border rounded p-2" placeholder="Ask about the dataset (e.g., 'average score by state')" value="{{ question or '' }}" />
+    <button type="submit" class="px-4 py-2 bg-indigo-600 text-white rounded">Ask</button>
+  </form>
+  {% if narrative %}
+  <div class="mt-4">
+    <h2 class="font-semibold mb-2">AI Insight</h2>
+    <div class="whitespace-pre-line">{{ narrative }}</div>
+  </div>
+  {% endif %}
+  {% if result and result.data %}
+  <div class="mt-4">
+    <h2 class="font-semibold mb-2">Result Data (JSON)</h2>
+    <pre class="text-sm bg-gray-100 p-3 rounded overflow-auto">{{ result.data | tojson }}</pre>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

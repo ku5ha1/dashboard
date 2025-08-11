@@ -1,0 +1,11 @@
+student_id,student_name,gender,state,school_name,class,course_name,completion_status,marks
+1,Aarav Sharma,Male,Karnataka,Green Valley High,10,Mathematics,Completed,88
+2,Ananya Reddy,Female,Karnataka,Sunshine Public,9,Science,Completed,92
+3,Pranav Iyer,Male,Karnataka,Green Valley High,10,Mathematics,Not Completed,55
+4,Ishita Nair,Female,Kerala,Riverdale School,8,English,Completed,78
+5,Vihaan Gupta,Male,Maharashtra,Hilltop School,9,Science,Completed,85
+6,Sanya Mehta,Female,Maharashtra,Hilltop School,9,Science,Not Completed,60
+7,Aditya Rao,Male,Telangana,Lakeview High,8,English,Completed,90
+8,Meera Kulkarni,Female,Telangana,Lakeview High,8,English,Completed,87
+9,Arjun Patil,Male,Karnataka,Sunshine Public,9,Science,Completed,91
+10,Diya Singh,Female,Kerala,Riverdale School,8,English,Not Completed,70

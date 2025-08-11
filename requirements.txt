@@ -1,8 +1,12 @@
 fastapi
-uvicorn
+uvicorn[standard]
 jinja2
-pandas
-python-dotenv
-requests
-openai
 python-multipart
+pandas
+sqlalchemy
+python-dotenv
+pydantic-settings
+httpx
+openai
+google-cloud-translate
+elevenlabs

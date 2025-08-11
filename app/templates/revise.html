@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="grid md:grid-cols-2 gap-6">
+  <div class="bg-white p-4 rounded shadow">
+    <h2 class="font-semibold mb-3">Stored Summaries</h2>
+    <ul class="divide-y">
+      {% for it in items %}
+      <li class="py-3">
+        <div class="text-sm text-gray-500">ID {{ it.id }} • {{ it.created_at }}</div>
+        <div class="line-clamp-2 text-gray-800">{{ it.summary_text }}</div>
+        <form method="post" action="/revise/{{ it.id }}" class="mt-2">
+          <button class="px-3 py-1 bg-green-600 text-white rounded">Generate Revision</button>
+        </form>
+      </li>
+      {% endfor %}
+    </ul>
+  </div>
+  <div class="bg-white p-4 rounded shadow">
+    <h2 class="font-semibold mb-3">Revision Notes</h2>
+    {% if notes %}
+    <div class="prose whitespace-pre-line">{{ notes }}</div>
+    {% else %}
+    <p class="text-gray-500">Select a summary to generate notes.</p>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
