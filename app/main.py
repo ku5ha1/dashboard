@@ -50,34 +50,87 @@ def _resolve_csv_path(config_path: str) -> Path:
 
 @app.on_event("startup")
 def startup():
-    init_db()
+    logger.info("Starting application initialization...")
+    
+    # Initialize database
+    try:
+        init_db()
+        logger.info("Database initialization completed")
+    except Exception as e:
+        logger.error(f"Failed to initialize database: {e}")
+        return
+    
     app.state.dataset_source = None
     app.state.dataset_table = None
-    # Prefer DB; fall back to CSV if pandas is available
+    
+    # Try database first
     try:
-        from sqlalchemy import text
+        from sqlalchemy import text, inspect
         with SessionLocal() as db:
-            # First try to list all tables
+            # Test database connection
             try:
-                tables = db.execute(text("SELECT tablename FROM pg_catalog.pg_tables WHERE schemaname = 'public'")).scalars().all()
+                db.execute(text("SELECT 1")).scalar()
+                logger.info("Database connection successful")
+            except Exception as e:
+                logger.error(f"Database connection test failed: {e}")
+                raise
+            
+            # Get list of tables
+            try:
+                inspector = inspect(db.get_bind())
+                tables = inspector.get_table_names()
                 logger.info(f"Found tables in database: {tables}")
             except Exception as e:
-                logger.warning(f"Could not list tables: {e}")
-                tables = ["education", "dataset", "data_education"]
+                logger.warning(f"Could not inspect tables: {e}")
+                tables = ["education"]
+            
+            # Try to use education table first
+            if "education" in tables:
+                tables = ["education"] + [t for t in tables if t != "education"]
             
             # Try each table
             for table_name in tables:
                 try:
-                    result = db.execute(text(f'SELECT COUNT(*) FROM "{table_name}"')).scalar()
-                    app.state.dataset_source = "db"
-                    app.state.dataset_table = table_name
-                    logger.info(f"Using DB table '{table_name}' for insights - contains {result} rows")
-                    return
+                    # Check if table exists and has data
+                    count = db.execute(text(f'SELECT COUNT(*) FROM "{table_name}"')).scalar()
+                    if count > 0:
+                        # Verify table structure
+                        cols = db.execute(text(f'SELECT * FROM "{table_name}" LIMIT 0')).keys()
+                        required = {"state", "gender", "class", "school_name", "marks"}
+                        if all(col in cols for col in required):
+                            app.state.dataset_source = "db"
+                            app.state.dataset_table = table_name
+                            logger.info(f"Using DB table '{table_name}' for insights - contains {count} rows with columns: {cols}")
+                            return
+                        else:
+                            logger.warning(f"Table {table_name} missing required columns. Has: {cols}")
+                    else:
+                        logger.warning(f"Table {table_name} exists but is empty")
                 except Exception as e:
                     logger.warning(f"Could not query table {table_name}: {e}")
                     continue
     except Exception as e:
-        logger.error(f"Database connection failed: {e}")
+        logger.error(f"Database setup failed: {e}")
+    
+    # Fallback to CSV if database not available
+    if pd is not None:
+        csv_path = _resolve_csv_path(settings.DATA_CSV_PATH)
+        try:
+            logger.info(f"Attempting to load CSV from {csv_path}")
+            app.state.df = pd.read_csv(csv_path)
+            if not app.state.df.empty:
+                app.state.dataset_source = "csv"
+                logger.info(f"Successfully loaded CSV dataset with shape {app.state.df.shape}")
+            else:
+                logger.warning("CSV file loaded but contains no data")
+        except Exception as e:
+            logger.error(f"Failed to load CSV data: {e}")
+            app.state.df = None
+    else:
+        logger.warning("Pandas not available for CSV fallback")
+    
+    if not app.state.dataset_source:
+        logger.error("No valid data source found - application may not work correctly")
     if pd is not None:
         csv_path = _resolve_csv_path(settings.DATA_CSV_PATH)
         try:
