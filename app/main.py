@@ -107,58 +107,84 @@ def startup():
     app.state.dataset_source = None
     app.state.dataset_table = None
     
-    # Connect to Neon database
-    try:
-        from sqlalchemy import text
-        with SessionLocal() as db:
-            # Test database connection
-            try:
-                db.execute(text("SELECT 1")).scalar()
-                logger.info("Neon database connection successful")
-            except Exception as e:
-                logger.error(f"Neon database connection failed: {e}")
-                return
+    # Connect to Neon database with retry logic for Vercel
+    max_retries = 3 if is_vercel else 1
+    
+    for attempt in range(max_retries):
+        try:
+            logger.info(f"Database connection attempt {attempt + 1}/{max_retries}")
             
-            # We know we're using the education table
-            table_name = "education"
-            try:
-                # Check if table has data
-                count = db.execute(text(f'SELECT COUNT(*) FROM "{table_name}"')).scalar()
-                logger.info(f"Found {count} rows in {table_name} table")
+            from sqlalchemy import text
+            with SessionLocal() as db:
+                # Test database connection
+                try:
+                    db.execute(text("SELECT 1")).scalar()
+                    logger.info("Neon database connection successful")
+                except Exception as e:
+                    logger.error(f"Neon database connection test failed: {e}")
+                    if attempt < max_retries - 1:
+                        logger.info(f"Retrying... (attempt {attempt + 1}/{max_retries})")
+                        continue
+                    else:
+                        logger.error("All database connection attempts failed")
+                        return
                 
-                if count > 0:
-                    # Get column names
-                    cols = db.execute(text(f'SELECT * FROM "{table_name}" LIMIT 0')).keys()
-                    logger.info(f"Table columns: {cols}")
+                # We know we're using the education table
+                table_name = "education"
+                try:
+                    # Check if table has data
+                    count = db.execute(text(f'SELECT COUNT(*) FROM "{table_name}"')).scalar()
+                    logger.info(f"Found {count} rows in {table_name} table")
                     
-                    # Set as data source
-                    app.state.dataset_source = "db"
-                    app.state.dataset_table = table_name
-                    logger.info(f"Successfully connected to Neon database table '{table_name}'")
-                else:
-                    logger.error(f"Table {table_name} exists but is empty")
-            except Exception as e:
-                logger.error(f"Error accessing table {table_name}: {e}")
-    except Exception as e:
-        logger.error(f"Database setup failed: {e}")
+                    if count > 0:
+                        # Get column names
+                        cols = db.execute(text(f'SELECT * FROM "{table_name}" LIMIT 0')).keys()
+                        logger.info(f"Table columns: {cols}")
+                        
+                        # Set as data source
+                        app.state.dataset_source = "db"
+                        app.state.dataset_table = table_name
+                        logger.info(f"Successfully connected to Neon database table '{table_name}'")
+                        break  # Success, exit retry loop
+                    else:
+                        logger.error(f"Table {table_name} exists but is empty")
+                        break  # No point retrying if table is empty
+                except Exception as e:
+                    logger.error(f"Error accessing table {table_name}: {e}")
+                    if attempt < max_retries - 1:
+                        logger.info(f"Retrying... (attempt {attempt + 1}/{max_retries})")
+                        continue
+                    else:
+                        logger.error("All table access attempts failed")
+                        break
+                        
+        except Exception as e:
+            logger.error(f"Database setup attempt {attempt + 1} failed: {e}")
+            if attempt < max_retries - 1:
+                logger.info(f"Retrying... (attempt {attempt + 1}/{max_retries})")
+                continue
+            else:
+                logger.error("All database setup attempts failed")
+                break
     
     if not app.state.dataset_source:
         logger.error("Failed to connect to Neon database - application will not work correctly")
-    if pd is not None:
-        csv_path = _resolve_csv_path(settings.DATA_CSV_PATH)
-        try:
-            app.state.df = pd.read_csv(csv_path)
-            app.state.dataset_source = "csv"
-            logger.info(f"Loaded CSV dataset: {csv_path} shape={getattr(app.state.df, 'shape', None)}")
-            if app.state.df is not None and not app.state.df.empty:
-                logger.info(f"CSV data loaded successfully. Columns: {list(app.state.df.columns)}")
-            else:
-                logger.warning("CSV data loaded but DataFrame is empty")
-        except Exception as exc:
-            logger.warning(f"Failed to load dataset from {csv_path}: {exc}")
-            app.state.df = None
-    else:
-        logger.warning("Pandas is not available - CSV data source will not work")
+        # Don't try CSV fallback on Vercel since it won't work
+        if not is_vercel and pd is not None:
+            csv_path = _resolve_csv_path(settings.DATA_CSV_PATH)
+            try:
+                app.state.df = pd.read_csv(csv_path)
+                app.state.dataset_source = "csv"
+                logger.info(f"Loaded CSV dataset: {csv_path} shape={getattr(app.state.df, 'shape', None)}")
+                if app.state.df is not None and not app.state.df.empty:
+                    logger.info(f"CSV data loaded successfully. Columns: {list(app.state.df.columns)}")
+                else:
+                    logger.warning("CSV data loaded but DataFrame is empty")
+            except Exception as exc:
+                logger.warning(f"Failed to load CSV data: {exc}")
+                app.state.df = None
+        else:
+            logger.warning("CSV fallback not available on Vercel")
 
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request):
