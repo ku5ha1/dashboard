@@ -3,6 +3,9 @@
 <div class="grid md:grid-cols-2 gap-6">
   <div class="bg-white p-4 rounded shadow">
     <h2 class="font-semibold mb-3">Stored Summaries</h2>
+    {% if error %}
+      <p class="text-sm text-red-600 mb-2">{{ error }}</p>
+    {% endif %}
     <ul class="divide-y">
       {% for it in items %}
       <li class="py-3">

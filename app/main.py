@@ -68,23 +68,44 @@ async def summariser_get(request: Request):
 @app.post("/summariser", response_class=HTMLResponse)
 async def summariser_post(request: Request, input_text: str = Form(...), db: Session = Depends(get_db)):
     summary = summarize_text(input_text)
-    row = Summary(input_text=input_text, summary_text=summary)
-    db.add(row); db.commit(); db.refresh(row)
-    return templates.TemplateResponse("summariser.html", {"request": request, "title": "Summariser", "summary": summary, "saved_id": row.id, "input_text": input_text})
+    saved_id = None
+    save_error = None
+    try:
+        row = Summary(input_text=input_text, summary_text=summary)
+        db.add(row)
+        db.commit()
+        db.refresh(row)
+        saved_id = row.id
+    except Exception as exc:
+        db.rollback()
+        save_error = f"Could not save to DB (running read-only or ephemeral FS). {exc}"
+    return templates.TemplateResponse(
+        "summariser.html",
+        {"request": request, "title": "Summariser", "summary": summary, "saved_id": saved_id, "save_error": save_error, "input_text": input_text},
+    )
 
 # Revise
 @app.get("/revise", response_class=HTMLResponse)
 async def revise_get(request: Request, db: Session = Depends(get_db)):
-    items = db.query(Summary).order_by(Summary.id.desc()).limit(20).all()
-    return templates.TemplateResponse("revise.html", {"request": request, "title": "Revise", "items": items})
+    try:
+        items = db.query(Summary).order_by(Summary.id.desc()).limit(20).all()
+        error = None
+    except Exception as exc:
+        items, error = [], f"DB unavailable: {exc}"
+    return templates.TemplateResponse("revise.html", {"request": request, "title": "Revise", "items": items, "error": error})
 
 @app.post("/revise/{summary_id}", response_class=HTMLResponse)
 async def revise_generate(request: Request, summary_id: int, db: Session = Depends(get_db)):
-    row = db.query(Summary).filter(Summary.id == summary_id).first()
-    if not row:
-        return RedirectResponse(url="/revise", status_code=302)
-    notes = make_revision_notes(row.summary_text)
-    return templates.TemplateResponse("revise.html", {"request": request, "title": "Revise", "items": db.query(Summary).order_by(Summary.id.desc()).limit(20).all(), "notes": notes, "active_id": summary_id})
+    try:
+        row = db.query(Summary).filter(Summary.id == summary_id).first()
+        if not row:
+            return RedirectResponse(url="/revise", status_code=302)
+        notes = make_revision_notes(row.summary_text)
+        items = db.query(Summary).order_by(Summary.id.desc()).limit(20).all()
+        error = None
+    except Exception as exc:
+        notes, items, error = None, [], f"DB unavailable: {exc}"
+    return templates.TemplateResponse("revise.html", {"request": request, "title": "Revise", "items": items, "notes": notes, "active_id": summary_id, "error": error})
 
 # Insights (minimal)
 def basic_query_to_agg(df: pd.DataFrame, q: str) -> Dict[str, Any]:

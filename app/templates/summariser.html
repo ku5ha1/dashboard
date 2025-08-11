@@ -10,6 +10,7 @@
     <h2 class="font-semibold mb-2">Summary</h2>
     <div class="whitespace-pre-line">{{ summary }}</div>
     {% if saved_id %}<p class="text-sm text-gray-500 mt-2">Saved (ID: {{ saved_id }})</p>{% endif %}
+    {% if save_error %}<p class="text-sm text-red-600 mt-2">{{ save_error }}</p>{% endif %}
   </div>
   {% endif %}
 </div>
