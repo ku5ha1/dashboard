@@ -10,9 +10,10 @@ logger = getLogger("app.db")
 def _normalize_database_url(database_url: str) -> str:
     # Ensure SQLAlchemy uses the psycopg (psycopg3) driver on Postgres
     if database_url.startswith("postgres://"):
-        return "postgresql+psycopg://" + database_url[len("postgres://"):]
+        database_url = "postgresql://" + database_url[len("postgres://"):]
     if database_url.startswith("postgresql://") and "+psycopg" not in database_url and "+psycopg2" not in database_url:
-        return database_url.replace("postgresql://", "postgresql+psycopg://", 1)
+        database_url = database_url.replace("postgresql://", "postgresql+psycopg://", 1)
+    logger.info(f"Using database URL: {database_url.split('@')[0]}@[HIDDEN]")
     return database_url
 
 def _resolve_sqlite_url(database_url: str) -> str:

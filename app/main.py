@@ -57,26 +57,42 @@ def startup():
     try:
         from sqlalchemy import text
         with SessionLocal() as db:
-            for table_name in ["education", "dataset", "data_education"]:
+            # First try to list all tables
+            try:
+                tables = db.execute(text("SELECT tablename FROM pg_catalog.pg_tables WHERE schemaname = 'public'")).scalars().all()
+                logger.info(f"Found tables in database: {tables}")
+            except Exception as e:
+                logger.warning(f"Could not list tables: {e}")
+                tables = ["education", "dataset", "data_education"]
+            
+            # Try each table
+            for table_name in tables:
                 try:
-                    db.execute(text(f'SELECT 1 FROM {table_name} LIMIT 1'))
+                    result = db.execute(text(f'SELECT COUNT(*) FROM "{table_name}"')).scalar()
                     app.state.dataset_source = "db"
                     app.state.dataset_table = table_name
-                    logger.info(f"Using DB table '{table_name}' for insights")
+                    logger.info(f"Using DB table '{table_name}' for insights - contains {result} rows")
                     return
-                except Exception:
+                except Exception as e:
+                    logger.warning(f"Could not query table {table_name}: {e}")
                     continue
-    except Exception:
-        pass
+    except Exception as e:
+        logger.error(f"Database connection failed: {e}")
     if pd is not None:
         csv_path = _resolve_csv_path(settings.DATA_CSV_PATH)
         try:
             app.state.df = pd.read_csv(csv_path)
             app.state.dataset_source = "csv"
             logger.info(f"Loaded CSV dataset: {csv_path} shape={getattr(app.state.df, 'shape', None)}")
+            if app.state.df is not None and not app.state.df.empty:
+                logger.info(f"CSV data loaded successfully. Columns: {list(app.state.df.columns)}")
+            else:
+                logger.warning("CSV data loaded but DataFrame is empty")
         except Exception as exc:
             logger.warning(f"Failed to load dataset from {csv_path}: {exc}")
             app.state.df = None
+    else:
+        logger.warning("Pandas is not available - CSV data source will not work")
 
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request):
@@ -185,12 +201,19 @@ async def insights_get(request: Request):
 @app.post("/dashboard", response_class=HTMLResponse)
 async def insights_post(request: Request, question: str = Form(...)):
     source = getattr(app.state, "dataset_source", None)
+    logger.info(f"Data source: {source}, Table: {getattr(app.state, 'dataset_table', None)}")
     if source == "db" and app.state.dataset_table:
         with SessionLocal() as db:
             result = basic_query_to_agg_db(question, db, app.state.dataset_table)
+            logger.info(f"DB query result: {result}")
     else:
         df = getattr(app.state, "df", None)
+        if df is not None:
+            logger.info(f"Using CSV data source. DataFrame shape: {df.shape}, columns: {list(df.columns)}")
+        else:
+            logger.warning("No DataFrame available")
         result = basic_query_to_agg_csv(question, df)
+        logger.info(f"CSV query result: {result}")
     # Optional: ask LLM to narrate
     summary_text = summarize_text(f"Create a one-paragraph summary for this data grouped by {result['groupby']} with values {result['metric']}: {result['data']}")
     return templates.TemplateResponse("insights.html", {"request": request, "title": "Insights", "result": result, "narrative": summary_text, "question": question})

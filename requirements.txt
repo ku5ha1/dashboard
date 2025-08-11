@@ -9,3 +9,4 @@ httpx
 openai
 vercel-blob
 psycopg[binary]
+pandas
