@@ -9,9 +9,136 @@
   <div class="mt-4">
     <h2 class="font-semibold mb-2">Summary</h2>
     <div class="whitespace-pre-line">{{ summary }}</div>
+    
+    <!-- Translation and TTS Controls -->
+    <div class="mt-4 p-4 bg-gray-50 rounded-lg">
+      <h3 class="font-medium mb-3">Translate & Listen</h3>
+      
+      <!-- Language Selection -->
+      <div class="flex items-center space-x-3 mb-3">
+        <select id="translateLang" class="border rounded px-3 py-2">
+          <option value="en">English</option>
+          <option value="hi">Hindi</option>
+          <option value="kn">Kannada</option>
+          <option value="te">Telugu</option>
+        </select>
+        <button onclick="translateSummary()" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">
+          Translate
+        </button>
+      </div>
+      
+      <!-- Translation Result -->
+      <div id="translationResult" class="hidden">
+        <div class="mb-3 p-3 bg-white border rounded">
+          <h4 class="font-medium mb-2">Translated Text:</h4>
+          <div id="translatedText" class="whitespace-pre-line"></div>
+        </div>
+        
+        <!-- TTS Controls -->
+        <div class="flex items-center space-x-3">
+          <button onclick="playTranslatedText()" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 flex items-center">
+            <span class="mr-2">🔊</span> Listen
+          </button>
+          <button onclick="copyTranslatedText()" class="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700">
+            Copy
+          </button>
+        </div>
+      </div>
+    </div>
+    
     {% if saved_id %}<p class="text-sm text-gray-500 mt-2">Saved (ID: {{ saved_id }})</p>{% endif %}
     {% if save_error %}<p class="text-sm text-red-600 mt-2">{{ save_error }}</p>{% endif %}
   </div>
   {% endif %}
 </div>
+
+<script>
+let currentTranslatedText = '';
+let currentAudioBase64 = '';
+
+async function translateSummary() {
+  const summaryText = `{{ summary or '' }}`;
+  const targetLang = document.getElementById('translateLang').value;
+  
+  if (!summaryText.trim()) {
+    alert('No summary to translate');
+    return;
+  }
+  
+  try {
+    const response = await fetch('/api/translate', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: `text=${encodeURIComponent(summaryText)}&target_lang=${targetLang}&source_lang=en`
+    });
+    
+    const result = await response.json();
+    
+    if (result.error) {
+      alert('Translation failed: ' + result.error);
+      return;
+    }
+    
+    // Show translation result
+    document.getElementById('translatedText').textContent = result.translated_text;
+    document.getElementById('translationResult').classList.remove('hidden');
+    
+    // Store for TTS
+    currentTranslatedText = result.translated_text;
+    
+    // Generate audio for TTS
+    await generateAudio(result.translated_text, targetLang);
+    
+  } catch (error) {
+    console.error('Translation error:', error);
+    alert('Translation failed. Please try again.');
+  }
+}
+
+async function generateAudio(text, language) {
+  try {
+    const response = await fetch('/api/tts', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: `text=${encodeURIComponent(text)}&language=${language}&slow=false`
+    });
+    
+    const result = await response.json();
+    
+    if (result.error) {
+      console.error('TTS failed:', result.error);
+      return;
+    }
+    
+    currentAudioBase64 = result.audio_base64;
+    
+  } catch (error) {
+    console.error('TTS error:', error);
+  }
+}
+
+function playTranslatedText() {
+  if (currentAudioBase64) {
+    const audio = new Audio(`data:audio/mp3;base64,${currentAudioBase64}`);
+    audio.play();
+  } else {
+    alert('Audio not ready. Please wait a moment and try again.');
+  }
+}
+
+function copyTranslatedText() {
+  if (currentTranslatedText) {
+    navigator.clipboard.writeText(currentTranslatedText).then(() => {
+      alert('Translated text copied to clipboard!');
+    }).catch(() => {
+      alert('Failed to copy text');
+    });
+  }
+}
+</script>
+
 {% endblock %}

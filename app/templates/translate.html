@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="max-w-4xl mx-auto">
+  <div class="bg-white p-6 rounded-xl shadow">
+    <h1 class="text-2xl font-bold text-gray-800 mb-6">Translation Tool</h1>
+    
+    <form method="post" action="/translate" class="space-y-4">
+      <!-- Source Language -->
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-2">Source Language</label>
+        <select name="source_lang" class="w-full border rounded-lg p-3 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+          <option value="auto" {% if selected_source == "auto" %}selected{% endif %}>Auto-detect</option>
+          {% for code, name in languages.items() %}
+          <option value="{{ code }}" {% if selected_source == code %}selected{% endif %}>{{ name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      
+      <!-- Target Language -->
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-2">Target Language</label>
+        <select name="target_lang" class="w-full border rounded-lg p-3 focus:ring-2 focus:ring-indigo-500 focus:outline-none" required>
+          {% for code, name in languages.items() %}
+          <option value="{{ code }}" {% if selected_target == code %}selected{% endif %}>{{ name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      
+      <!-- Input Text -->
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-2">Text to Translate</label>
+        <textarea name="text" rows="4" class="w-full border rounded-lg p-3 focus:ring-2 focus:ring-indigo-500 focus:outline-none" placeholder="Enter text to translate..." required>{{ input_text or '' }}</textarea>
+      </div>
+      
+      <!-- Submit Button -->
+      <button type="submit" class="w-full bg-indigo-600 text-white py-3 px-6 rounded-lg hover:bg-indigo-700 transition-colors">
+        Translate
+      </button>
+    </form>
+    
+    <!-- Error Display -->
+    {% if error %}
+    <div class="mt-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+      <p class="text-red-700">{{ error }}</p>
+    </div>
+    {% endif %}
+    
+    <!-- Translation Result -->
+    {% if translation_result and not translation_result.error %}
+    <div class="mt-8 p-6 bg-gray-50 rounded-lg">
+      <h2 class="text-lg font-semibold text-gray-800 mb-4">Translation Result</h2>
+      
+      <!-- Language Info -->
+      <div class="mb-4 p-3 bg-white rounded border">
+        <div class="flex items-center justify-between text-sm text-gray-600">
+          <span>From: <strong>{{ translation_result.source_language_name }}</strong></span>
+          <span>To: <strong>{{ translation_result.target_language_name }}</strong></span>
+        </div>
+      </div>
+      
+      <!-- Original Text -->
+      <div class="mb-4">
+        <h3 class="text-sm font-medium text-gray-700 mb-2">Original Text</h3>
+        <div class="p-3 bg-white border rounded-lg">
+          <p class="text-gray-800">{{ translation_result.original_text }}</p>
+        </div>
+      </div>
+      
+      <!-- Translated Text -->
+      <div class="mb-4">
+        <h3 class="text-sm font-medium text-gray-700 mb-2">Translated Text</h3>
+        <div class="p-3 bg-white border rounded-lg">
+          <p class="text-gray-800">{{ translation_result.translated_text }}</p>
+        </div>
+      </div>
+      
+      <!-- Pronunciation (if available) -->
+      {% if translation_result.pronunciation %}
+      <div class="mb-4">
+        <h3 class="text-sm font-medium text-gray-700 mb-2">Pronunciation</h3>
+        <div class="p-3 bg-white border rounded-lg">
+          <p class="text-gray-600 font-mono">{{ translation_result.pronunciation }}</p>
+        </div>
+      </div>
+      {% endif %}
+      
+      <!-- Copy Button -->
+      <button onclick="copyToClipboard('{{ translation_result.translated_text }}')" class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors">
+        Copy Translation
+      </button>
+    </div>
+    {% endif %}
+    
+    <!-- Error in Translation -->
+    {% if translation_result and translation_result.error %}
+    <div class="mt-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+      <p class="text-red-700">{{ translation_result.error }}</p>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<script>
+function copyToClipboard(text) {
+  navigator.clipboard.writeText(text).then(function() {
+    // Show success message
+    const button = event.target;
+    const originalText = button.textContent;
+    button.textContent = 'Copied!';
+    button.classList.add('bg-green-700');
+    
+    setTimeout(() => {
+      button.textContent = originalText;
+      button.classList.remove('bg-green-700');
+    }, 2000);
+  }).catch(function(err) {
+    console.error('Could not copy text: ', err);
+  });
+}
+</script>
+{% endblock %}

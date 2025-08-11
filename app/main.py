@@ -15,6 +15,7 @@ from logging import getLogger
 
 from .db import SessionLocal, init_db, Summary, save_summary_blob
 from .services.llm import summarize_text, make_revision_notes
+from .services.translation_tts import translation_tts_service
 from .config import settings
 
 app = FastAPI()
@@ -576,3 +577,94 @@ async def insights_post(request: Request, question: str = Form(...)):
         "question": question,
         "table_preview": table_preview
     })
+
+# Translation and TTS endpoints
+@app.get("/translate", response_class=HTMLResponse)
+async def translate_get(request: Request):
+    """Translation page"""
+    languages = translation_tts_service.get_supported_languages()
+    return templates.TemplateResponse("translate.html", {
+        "request": request, 
+        "title": "Translation", 
+        "languages": languages
+    })
+
+@app.post("/translate", response_class=HTMLResponse)
+async def translate_post(request: Request, text: str = Form(...), target_lang: str = Form(...), source_lang: str = Form("auto")):
+    """Translate text"""
+    languages = translation_tts_service.get_supported_languages()
+    
+    if not text.strip():
+        return templates.TemplateResponse("translate.html", {
+            "request": request, 
+            "title": "Translation", 
+            "languages": languages,
+            "error": "Please enter text to translate"
+        })
+    
+    # Detect language if auto is selected
+    if source_lang == "auto":
+        detection = translation_tts_service.detect_language(text)
+        if "error" not in detection:
+            source_lang = detection["language"]
+    
+    # Translate text
+    translation_result = translation_tts_service.translate_text(text, target_lang, source_lang)
+    
+    return templates.TemplateResponse("translate.html", {
+        "request": request, 
+        "title": "Translation", 
+        "languages": languages,
+        "translation_result": translation_result,
+        "input_text": text,
+        "selected_target": target_lang,
+        "selected_source": source_lang
+    })
+
+@app.get("/tts", response_class=HTMLResponse)
+async def tts_get(request: Request):
+    """Text-to-Speech page"""
+    languages = translation_tts_service.get_supported_languages()
+    return templates.TemplateResponse("tts.html", {
+        "request": request, 
+        "title": "Text to Speech", 
+        "languages": languages
+    })
+
+@app.post("/tts", response_class=HTMLResponse)
+async def tts_post(request: Request, text: str = Form(...), language: str = Form("en"), slow: bool = Form(False)):
+    """Convert text to speech"""
+    languages = translation_tts_service.get_supported_languages()
+    
+    if not text.strip():
+        return templates.TemplateResponse("tts.html", {
+            "request": request, 
+            "title": "Text to Speech", 
+            "languages": languages,
+            "error": "Please enter text to convert to speech"
+        })
+    
+    # Convert text to speech
+    tts_result = translation_tts_service.text_to_speech(text, language, slow)
+    
+    return templates.TemplateResponse("tts.html", {
+        "request": request, 
+        "title": "Text to Speech", 
+        "languages": languages,
+        "tts_result": tts_result,
+        "input_text": text,
+        "selected_language": language,
+        "slow_speech": slow
+    })
+
+@app.post("/api/translate")
+async def api_translate(text: str = Form(...), target_lang: str = Form(...), source_lang: str = Form("auto")):
+    """API endpoint for translation"""
+    result = translation_tts_service.translate_text(text, target_lang, source_lang)
+    return result
+
+@app.post("/api/tts")
+async def api_tts(text: str = Form(...), language: str = Form("en"), slow: bool = Form(False)):
+    """API endpoint for text-to-speech"""
+    result = translation_tts_service.text_to_speech(text, language, slow)
+    return result
