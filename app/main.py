@@ -427,7 +427,53 @@ def basic_query_to_agg_csv(q: str, df) -> Dict[str, Any]:
 
 @app.get("/dashboard", response_class=HTMLResponse)
 async def insights_get(request: Request):
-    return templates.TemplateResponse("insights.html", {"request": request, "title": "Insights", "result": None})
+    # Get database preview data
+    table_preview = None
+    try:
+        source = getattr(app.state, "dataset_source", None)
+        table = getattr(app.state, "dataset_table", None)
+        
+        if source == "db" and table:
+            with SessionLocal() as db:
+                from sqlalchemy import text
+                # Get first 10 rows for preview
+                sql = f'SELECT * FROM "{table}" LIMIT 10'
+                rows = db.execute(text(sql)).mappings().all()
+                if rows:
+                    # Convert Decimal types to float for JSON serialization
+                    preview_data = []
+                    for row in rows:
+                        row_dict = dict(row)
+                        for key, value in row_dict.items():
+                            if hasattr(value, 'as_tuple'):  # Check if it's a Decimal
+                                row_dict[key] = float(value)
+                        preview_data.append(row_dict)
+                    
+                    # Get column names
+                    cols = list(rows[0].keys()) if rows else []
+                    table_preview = {
+                        "data": preview_data,
+                        "columns": cols,
+                        "total_rows": None  # We'll get this separately
+                    }
+                    
+                    # Get total row count
+                    count_sql = f'SELECT COUNT(*) FROM "{table}"'
+                    total_count = db.execute(text(count_sql)).scalar()
+                    if hasattr(total_count, 'as_tuple'):  # Convert Decimal if needed
+                        total_count = float(total_count)
+                    table_preview["total_rows"] = total_count
+                    
+    except Exception as e:
+        logger.error(f"Failed to get table preview: {e}")
+        table_preview = None
+    
+    return templates.TemplateResponse("insights.html", {
+        "request": request, 
+        "title": "Insights", 
+        "result": None,
+        "table_preview": table_preview
+    })
 
 @app.post("/dashboard", response_class=HTMLResponse)
 async def insights_post(request: Request, question: str = Form(...)):
@@ -481,4 +527,52 @@ async def insights_post(request: Request, question: str = Form(...)):
     else:
         summary_text = "No data available to summarize. Please check the data source configuration."
     
-    return templates.TemplateResponse("insights.html", {"request": request, "title": "Insights", "result": result, "narrative": summary_text, "question": question})
+    # Get table preview for display
+    table_preview = None
+    try:
+        source = getattr(app.state, "dataset_source", None)
+        table = getattr(app.state, "dataset_table", None)
+        
+        if source == "db" and table:
+            with SessionLocal() as db:
+                from sqlalchemy import text
+                # Get first 10 rows for preview
+                sql = f'SELECT * FROM "{table}" LIMIT 10'
+                rows = db.execute(text(sql)).mappings().all()
+                if rows:
+                    # Convert Decimal types to float for JSON serialization
+                    preview_data = []
+                    for row in rows:
+                        row_dict = dict(row)
+                        for key, value in row_dict.items():
+                            if hasattr(value, 'as_tuple'):  # Check if it's a Decimal
+                                row_dict[key] = float(value)
+                        preview_data.append(row_dict)
+                    
+                    # Get column names
+                    cols = list(rows[0].keys()) if rows else []
+                    table_preview = {
+                        "data": preview_data,
+                        "columns": cols,
+                        "total_rows": None
+                    }
+                    
+                    # Get total row count
+                    count_sql = f'SELECT COUNT(*) FROM "{table}"'
+                    total_count = db.execute(text(count_sql)).scalar()
+                    if hasattr(total_count, 'as_tuple'):  # Convert Decimal if needed
+                        total_count = float(total_count)
+                    table_preview["total_rows"] = total_count
+                    
+    except Exception as e:
+        logger.error(f"Failed to get table preview: {e}")
+        table_preview = None
+    
+    return templates.TemplateResponse("insights.html", {
+        "request": request, 
+        "title": "Insights", 
+        "result": result, 
+        "narrative": summary_text, 
+        "question": question,
+        "table_preview": table_preview
+    })
