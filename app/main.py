@@ -92,9 +92,9 @@ def _resolve_csv_path(config_path: str) -> Path:
 def startup():
     logger.info("Starting application initialization...")
     
-    # Check if running on Vercel
-    is_vercel = os.getenv("VERCEL") == "1"
-    logger.info(f"Running on Vercel: {is_vercel}")
+    # Check deployment environment
+    is_render = os.getenv("RENDER") == "true"
+    logger.info(f"Running on Render: {is_render}")
     
     # Initialize database
     try:
@@ -107,8 +107,8 @@ def startup():
     app.state.dataset_source = None
     app.state.dataset_table = None
     
-    # Connect to Neon database with retry logic for Vercel
-    max_retries = 3 if is_vercel else 1
+    # Connect to Neon database with retry logic for Render
+    max_retries = 3 if is_render else 1
     
     for attempt in range(max_retries):
         try:
@@ -169,8 +169,8 @@ def startup():
     
     if not app.state.dataset_source:
         logger.error("Failed to connect to Neon database - application will not work correctly")
-        # Don't try CSV fallback on Vercel since it won't work
-        if not is_vercel and pd is not None:
+        # Don't try CSV fallback on Render since it won't work
+        if not is_render and pd is not None:
             csv_path = _resolve_csv_path(settings.DATA_CSV_PATH)
             try:
                 app.state.df = pd.read_csv(csv_path)
@@ -184,7 +184,7 @@ def startup():
                 logger.warning(f"Failed to load CSV data: {exc}")
                 app.state.df = None
         else:
-            logger.warning("CSV fallback not available on Vercel")
+            logger.warning("CSV fallback not available on Render")
 
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request):
@@ -208,7 +208,7 @@ async def health_check():
         "dataset_table": getattr(app.state, "dataset_table", None),
         "has_dataframe": getattr(app.state, "df", None) is not None,
         "database_status": db_status,
-        "vercel_env": os.getenv("VERCEL") == "1"
+        "render_env": os.getenv("RENDER") == "true"
     }
     
     return {

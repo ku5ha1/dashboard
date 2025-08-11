@@ -91,26 +91,26 @@ except Exception as e:
 
 # Create engine with proper configuration for Neon
 try:
-    # Vercel-specific optimizations
-    is_vercel = os.getenv("VERCEL") == "1"
+    # Render-optimized configuration
+    is_render = os.getenv("RENDER") == "true"
     
-    if is_vercel:
-        # Serverless-friendly configuration
+    if is_render:
+        # Render-optimized configuration
         engine = create_engine(
             normalized_url,
-            pool_size=1,  # Single connection for serverless
-            max_overflow=0,  # No overflow connections
-            pool_timeout=10,  # Shorter timeout
-            pool_recycle=300,  # Recycle every 5 minutes
+            pool_size=10,  # More connections for persistent containers
+            max_overflow=5,  # Allow overflow connections
+            pool_timeout=30,  # Longer timeout for Render
+            pool_recycle=3600,  # Recycle every hour
             pool_pre_ping=True,  # Verify connection before using
             echo=False,  # Set to True for SQL query logging
-            # Vercel-specific connection args
+            # Render-specific connection args
             connect_args={
-                "connect_timeout": 10,
-                "application_name": "dashboard_vercel"
+                "connect_timeout": 30,
+                "application_name": "dashboard_render"
             }
         )
-        logger.info("Created Vercel-optimized database engine")
+        logger.info("Created Render-optimized database engine")
     else:
         # Local development configuration
         engine = create_engine(
