@@ -8,12 +8,37 @@ from .config import settings
 logger = getLogger("app.db")
 
 def _normalize_database_url(database_url: str) -> str:
-    # Ensure SQLAlchemy uses the psycopg (psycopg3) driver on Postgres
+    """Normalize database URL for Neon and ensure proper driver usage."""
+    logger.info("Normalizing database URL...")
+    
+    if not database_url:
+        logger.error("No DATABASE_URL provided")
+        raise ValueError("DATABASE_URL environment variable is required")
+        
+    # Convert postgres:// to postgresql://
     if database_url.startswith("postgres://"):
         database_url = "postgresql://" + database_url[len("postgres://"):]
+        logger.info("Converted postgres:// to postgresql://")
+    
+    # Add psycopg driver if not present
     if database_url.startswith("postgresql://") and "+psycopg" not in database_url and "+psycopg2" not in database_url:
         database_url = database_url.replace("postgresql://", "postgresql+psycopg://", 1)
-    logger.info(f"Using database URL: {database_url.split('@')[0]}@[HIDDEN]")
+        logger.info("Added psycopg driver to URL")
+    
+    # Ensure SSL mode for Neon
+    if "sslmode=" not in database_url:
+        separator = "&" if "?" in database_url else "?"
+        database_url = f"{database_url}{separator}sslmode=require"
+        logger.info("Added SSL mode requirement")
+    
+    # Log sanitized URL
+    url_parts = database_url.split('@')
+    if len(url_parts) > 1:
+        masked_url = f"{url_parts[0].split('://')[0]}://[CREDENTIALS]@{url_parts[1]}"
+    else:
+        masked_url = "[MALFORMED_URL]"
+    logger.info(f"Using database URL: {masked_url}")
+    
     return database_url
 
 def _resolve_sqlite_url(database_url: str) -> str:
@@ -55,12 +80,29 @@ def _resolve_sqlite_url(database_url: str) -> str:
             return database_url
 
 
-normalized_url = _normalize_database_url(settings.DATABASE_URL)
-final_database_url = _resolve_sqlite_url(normalized_url)
-engine = create_engine(
-    final_database_url,
-    connect_args={"check_same_thread": False} if final_database_url.startswith("sqlite") else {},
-)
+# Normalize and validate database URL
+try:
+    normalized_url = _normalize_database_url(settings.DATABASE_URL)
+    logger.info("Database URL normalized successfully")
+except Exception as e:
+    logger.error(f"Failed to normalize database URL: {e}")
+    raise
+
+# Create engine with proper configuration for Neon
+try:
+    engine = create_engine(
+        normalized_url,
+        pool_size=5,  # Limit connections for serverless
+        max_overflow=2,
+        pool_timeout=30,
+        pool_recycle=1800,  # Recycle connections every 30 minutes
+        pool_pre_ping=True,  # Verify connection before using
+        echo=False  # Set to True for SQL query logging
+    )
+    logger.info("Database engine created successfully")
+except Exception as e:
+    logger.error(f"Failed to create database engine: {e}")
+    raise
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
