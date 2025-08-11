@@ -1,4 +1,5 @@
 import os
+import datetime
 from fastapi import FastAPI, Request, Form, Depends
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
@@ -33,6 +34,44 @@ def get_db():
         db.close()
 
 logger = getLogger("app")
+
+async def _initialize_data_source():
+    """Initialize data source if startup didn't complete"""
+    logger.info("Attempting to initialize data source...")
+    
+    try:
+        from sqlalchemy import text
+        with SessionLocal() as db:
+            # Test database connection
+            try:
+                db.execute(text("SELECT 1")).scalar()
+                logger.info("Neon database connection successful")
+            except Exception as e:
+                logger.error(f"Neon database connection failed: {e}")
+                return
+            
+            # We know we're using the education table
+            table_name = "education"
+            try:
+                # Check if table has data
+                count = db.execute(text(f'SELECT COUNT(*) FROM "{table_name}"')).scalar()
+                logger.info(f"Found {count} rows in {table_name} table")
+                
+                if count > 0:
+                    # Get column names
+                    cols = db.execute(text(f'SELECT * FROM "{table_name}" LIMIT 0')).keys()
+                    logger.info(f"Table columns: {cols}")
+                    
+                    # Set as data source
+                    app.state.dataset_source = "db"
+                    app.state.dataset_table = table_name
+                    logger.info(f"Successfully connected to Neon database table '{table_name}'")
+                else:
+                    logger.error(f"Table {table_name} exists but is empty")
+            except Exception as e:
+                logger.error(f"Error accessing table {table_name}: {e}")
+    except Exception as e:
+        logger.error(f"Database setup failed: {e}")
 
 def _resolve_csv_path(config_path: str) -> Path:
     path = Path(config_path)
@@ -124,6 +163,33 @@ def startup():
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request):
     return templates.TemplateResponse("base.html", {"request": request, "title": "Home"})
+
+@app.get("/health")
+async def health_check():
+    """Health check endpoint to verify application state"""
+    try:
+        # Check database connection
+        with SessionLocal() as db:
+            from sqlalchemy import text
+            db.execute(text("SELECT 1")).scalar()
+            db_status = "connected"
+    except Exception as e:
+        db_status = f"error: {str(e)}"
+    
+    # Check app state
+    app_state = {
+        "dataset_source": getattr(app.state, "dataset_source", None),
+        "dataset_table": getattr(app.state, "dataset_table", None),
+        "has_dataframe": getattr(app.state, "df", None) is not None,
+        "database_status": db_status,
+        "vercel_env": os.getenv("VERCEL") == "1"
+    }
+    
+    return {
+        "status": "healthy" if app_state["dataset_source"] else "unhealthy",
+        "app_state": app_state,
+        "timestamp": str(datetime.datetime.now())
+    }
 
 # Summariser
 @app.get("/summariser", response_class=HTMLResponse)
@@ -311,13 +377,38 @@ async def insights_get(request: Request):
 
 @app.post("/dashboard", response_class=HTMLResponse)
 async def insights_post(request: Request, question: str = Form(...)):
+    # Debug: Check app state
+    logger.info(f"App state - dataset_source: {getattr(app.state, 'dataset_source', None)}")
+    logger.info(f"App state - dataset_table: {getattr(app.state, 'dataset_table', None)}")
+    logger.info(f"App state - df: {getattr(app.state, 'df', None)}")
+    
     source = getattr(app.state, "dataset_source", None)
-    logger.info(f"Data source: {source}, Table: {getattr(app.state, 'dataset_table', None)}")
-    if source == "db" and app.state.dataset_table:
-        with SessionLocal() as db:
-            result = basic_query_to_agg_db(question, db, app.state.dataset_table)
-            logger.info(f"DB query result: {result}")
+    table = getattr(app.state, "dataset_table", None)
+    
+    logger.info(f"Processing dashboard request - Data source: {source}, Table: {table}")
+    
+    # If startup didn't complete, try to initialize now
+    if not source and not table:
+        logger.warning("Startup incomplete, attempting to initialize database connection now")
+        try:
+            await _initialize_data_source()
+            source = getattr(app.state, "dataset_source", None)
+            table = getattr(app.state, "dataset_table", None)
+            logger.info(f"Re-initialized - Data source: {source}, Table: {table}")
+        except Exception as e:
+            logger.error(f"Failed to re-initialize: {e}")
+    
+    if source == "db" and table:
+        logger.info(f"Using database source: {table}")
+        try:
+            with SessionLocal() as db:
+                result = basic_query_to_agg_db(question, db, table)
+                logger.info(f"DB query result: {result}")
+        except Exception as e:
+            logger.error(f"Database query failed: {e}")
+            result = {"data": [], "groupby": None, "metric": None}
     else:
+        logger.warning(f"Database not available - source: {source}, table: {table}")
         df = getattr(app.state, "df", None)
         if df is not None:
             logger.info(f"Using CSV data source. DataFrame shape: {df.shape}, columns: {list(df.columns)}")
@@ -325,6 +416,15 @@ async def insights_post(request: Request, question: str = Form(...)):
             logger.warning("No DataFrame available")
         result = basic_query_to_agg_csv(question, df)
         logger.info(f"CSV query result: {result}")
-    # Optional: ask LLM to narrate
-    summary_text = summarize_text(f"Create a one-paragraph summary for this data grouped by {result['groupby']} with values {result['metric']}: {result['data']}")
+    
+    # Only generate summary if we have data
+    if result and result.get('data'):
+        try:
+            summary_text = summarize_text(f"Create a one-paragraph summary for this data grouped by {result['groupby']} with values {result['metric']}: {result['data']}")
+        except Exception as e:
+            logger.error(f"Failed to generate summary: {e}")
+            summary_text = "Unable to generate summary due to an error."
+    else:
+        summary_text = "No data available to summarize. Please check the data source configuration."
+    
     return templates.TemplateResponse("insights.html", {"request": request, "title": "Insights", "result": result, "narrative": summary_text, "question": question})
