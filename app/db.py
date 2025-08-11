@@ -1,3 +1,4 @@
+import os
 from sqlalchemy import create_engine, Column, Integer, Text, DateTime, func
 from sqlalchemy.orm import sessionmaker, declarative_base
 from pathlib import Path
@@ -90,16 +91,39 @@ except Exception as e:
 
 # Create engine with proper configuration for Neon
 try:
-    engine = create_engine(
-        normalized_url,
-        pool_size=5,  # Limit connections for serverless
-        max_overflow=2,
-        pool_timeout=30,
-        pool_recycle=1800,  # Recycle connections every 30 minutes
-        pool_pre_ping=True,  # Verify connection before using
-        echo=False  # Set to True for SQL query logging
-    )
-    logger.info("Database engine created successfully")
+    # Vercel-specific optimizations
+    is_vercel = os.getenv("VERCEL") == "1"
+    
+    if is_vercel:
+        # Serverless-friendly configuration
+        engine = create_engine(
+            normalized_url,
+            pool_size=1,  # Single connection for serverless
+            max_overflow=0,  # No overflow connections
+            pool_timeout=10,  # Shorter timeout
+            pool_recycle=300,  # Recycle every 5 minutes
+            pool_pre_ping=True,  # Verify connection before using
+            echo=False,  # Set to True for SQL query logging
+            # Vercel-specific connection args
+            connect_args={
+                "connect_timeout": 10,
+                "application_name": "dashboard_vercel"
+            }
+        )
+        logger.info("Created Vercel-optimized database engine")
+    else:
+        # Local development configuration
+        engine = create_engine(
+            normalized_url,
+            pool_size=5,
+            max_overflow=2,
+            pool_timeout=30,
+            pool_recycle=1800,
+            pool_pre_ping=True,
+            echo=False
+        )
+        logger.info("Created local development database engine")
+        
 except Exception as e:
     logger.error(f"Failed to create database engine: {e}")
     raise

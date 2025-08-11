@@ -1,3 +1,4 @@
+import os
 from fastapi import FastAPI, Request, Form, Depends
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
@@ -51,6 +52,10 @@ def _resolve_csv_path(config_path: str) -> Path:
 @app.on_event("startup")
 def startup():
     logger.info("Starting application initialization...")
+    
+    # Check if running on Vercel
+    is_vercel = os.getenv("VERCEL") == "1"
+    logger.info(f"Running on Vercel: {is_vercel}")
     
     # Initialize database
     try:
