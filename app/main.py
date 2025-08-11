@@ -3,7 +3,10 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
-import pandas as pd
+try:
+    import pandas as pd  # optional; not installed in production
+except Exception:
+    pd = None
 from typing import Optional, Dict, Any
 from pathlib import Path
 from logging import getLogger
@@ -48,30 +51,32 @@ def _resolve_csv_path(config_path: str) -> Path:
 @app.on_event("startup")
 def startup():
     init_db()
-    # Try loading from DB first (Neon), fall back to CSV
+    app.state.dataset_source = None
+    app.state.dataset_table = None
+    # Prefer DB; fall back to CSV if pandas is available
     try:
         from sqlalchemy import text
         with SessionLocal() as db:
-            conn = db.connection().connection
-            # Attempt to read a likely table name
             for table_name in ["education", "dataset", "data_education"]:
                 try:
-                    app.state.df = pd.read_sql(f"select * from {table_name}", db.bind)
-                    if not app.state.df.empty:
-                        logger.info(f"Loaded dataset from DB table '{table_name}' shape={app.state.df.shape}")
-                        break
+                    db.execute(text(f'SELECT 1 FROM {table_name} LIMIT 1'))
+                    app.state.dataset_source = "db"
+                    app.state.dataset_table = table_name
+                    logger.info(f"Using DB table '{table_name}' for insights")
+                    return
                 except Exception:
                     continue
-            else:
-                raise RuntimeError("No dataset table found, falling back to CSV")
     except Exception:
+        pass
+    if pd is not None:
         csv_path = _resolve_csv_path(settings.DATA_CSV_PATH)
         try:
             app.state.df = pd.read_csv(csv_path)
-            logger.info(f"Loaded dataset: {csv_path} shape={getattr(app.state.df, 'shape', None)}")
+            app.state.dataset_source = "csv"
+            logger.info(f"Loaded CSV dataset: {csv_path} shape={getattr(app.state.df, 'shape', None)}")
         except Exception as exc:
             logger.warning(f"Failed to load dataset from {csv_path}: {exc}")
-            app.state.df = pd.DataFrame()
+            app.state.df = None
 
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request):
@@ -130,19 +135,43 @@ async def revise_generate(request: Request, summary_id: int, db: Session = Depen
     return templates.TemplateResponse("revise.html", {"request": request, "title": "Revise", "items": items, "notes": notes, "active_id": summary_id, "error": error})
 
 # Insights (minimal)
-def basic_query_to_agg(df: pd.DataFrame, q: str) -> Dict[str, Any]:
-    if df.empty:
+def _choose_groupby_and_metric(q: str, available_cols: Optional[list] = None) -> Dict[str, str]:
+    q_low = (q or "").lower()
+    candidate_gbs = ["state", "gender", "class", "school"]
+    gb = None
+    for c in candidate_gbs:
+        if c in q_low:
+            gb = c
+            break
+    if gb is None:
+        gb = available_cols[0] if available_cols else "state"
+    metric = "score" if (available_cols and "score" in available_cols) or ("score" in q_low) else None
+    return {"gb": gb, "metric": metric}
+
+def basic_query_to_agg_db(q: str, session: Session, table_name: str) -> Dict[str, Any]:
+    from sqlalchemy import text
+    # Restrict identifiers to safe set
+    allowed_cols = {"state", "gender", "class", "school", "score", "students"}
+    choice = _choose_groupby_and_metric(q, list(allowed_cols))
+    gb = choice["gb"]
+    metric = choice["metric"]
+    if gb not in allowed_cols:
         return {"data": [], "groupby": None, "metric": None}
-    q_low = q.lower()
-    metric = "score" if "score" in df.columns else None
-    if "state" in q_low:
-        gb = "state"
-    elif "gender" in q_low:
-        gb = "gender"
-    elif "class" in q_low:
-        gb = "class"
+    if metric == "score":
+        sql = f'SELECT "{gb}" as "{gb}", AVG("score") as value FROM {table_name} GROUP BY "{gb}" ORDER BY value DESC'
     else:
-        gb = "state" if "state" in df.columns else df.columns[0]
+        sql = f'SELECT "{gb}" as "{gb}", COUNT(*) as value FROM {table_name} GROUP BY "{gb}" ORDER BY value DESC'
+    rows = session.execute(text(sql)).mappings().all()
+    data = [dict(r) for r in rows]
+    return {"data": data, "groupby": gb, "metric": metric or "count"}
+
+def basic_query_to_agg_csv(q: str, df) -> Dict[str, Any]:
+    if pd is None or df is None or getattr(df, "empty", True):
+        return {"data": [], "groupby": None, "metric": None}
+    available_cols = list(df.columns)
+    choice = _choose_groupby_and_metric(q, available_cols)
+    gb = choice["gb"]
+    metric = choice["metric"]
     if metric and metric in df.columns:
         agg = df.groupby(gb)[metric].mean().reset_index().rename(columns={metric: "value"})
     else:
@@ -155,8 +184,13 @@ async def insights_get(request: Request):
 
 @app.post("/dashboard", response_class=HTMLResponse)
 async def insights_post(request: Request, question: str = Form(...)):
-    df = getattr(app.state, "df", None)
-    result = basic_query_to_agg(df, question) if df is not None else {"data": [], "groupby": None, "metric": None}
+    source = getattr(app.state, "dataset_source", None)
+    if source == "db" and app.state.dataset_table:
+        with SessionLocal() as db:
+            result = basic_query_to_agg_db(question, db, app.state.dataset_table)
+    else:
+        df = getattr(app.state, "df", None)
+        result = basic_query_to_agg_csv(question, df)
     # Optional: ask LLM to narrate
     summary_text = summarize_text(f"Create a one-paragraph summary for this data grouped by {result['groupby']} with values {result['metric']}: {result['data']}")
     return templates.TemplateResponse("insights.html", {"request": request, "title": "Insights", "result": result, "narrative": summary_text, "question": question})

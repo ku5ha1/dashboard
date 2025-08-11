@@ -2,13 +2,10 @@ fastapi
 uvicorn[standard]
 jinja2
 python-multipart
-pandas
 sqlalchemy
 python-dotenv
 pydantic-settings
 httpx
 openai
-google-cloud-translate
-elevenlabs
 vercel-blob
 psycopg[binary]
